@@ -1891,7 +1891,7 @@ private:
         std::cout << "  - Processing element: " << elem.name << std::endl;
       }
 	  if (elem.name == "vertex") {
-		  pc = new PointCloud(elem.count);
+		  pc = new PointCloud(100000);
 	  }
 
 
@@ -1949,7 +1949,7 @@ private:
 
 			//elem.properties[iP]->readNext(inStream);
         //}
-		if (iEntry == 100000)
+		if (iEntry == pc->getLength())
 			break;
       }
     }
