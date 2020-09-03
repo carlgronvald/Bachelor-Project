@@ -1272,6 +1272,8 @@ inline bool startsWith(const std::string& input, const std::string& query) {
 class PLYData {
 
 public:
+	int subsample;
+
   /**
    * @brief Create an empty PLYData object.
    */
@@ -1283,12 +1285,14 @@ public:
    * @param filename The file to read from.
    * @param verbose If true, print useful info about the file to stdout
    */
-  PLYData(const std::string& filename, bool verbose = false) {
+  PLYData(const std::string& filename, bool verbose = false, int subsample = 1) {
 
     using std::cout;
     using std::endl;
     using std::string;
     using std::vector;
+
+	this->subsample = subsample;
 
     if (verbose) cout << "PLY parser: Reading ply file: " << filename << endl;
 
@@ -1891,7 +1895,7 @@ private:
         std::cout << "  - Processing element: " << elem.name << std::endl;
       }
 	  if (elem.name == "vertex") {
-		  pc = new PointCloud(100000);
+		  pc = new PointCloud(elem.count/subsample);
 	  }
 
 
@@ -1904,10 +1908,10 @@ private:
       for (size_t iEntry = 0; iEntry < elem.count; iEntry++) {
 		  if (iEntry % 10000 == 1) {
 			  std::cout << "at iteration " << iEntry << "/" << elem.count - 1 << std::endl;
-			  std::cout << pc->vertexPositions[iEntry * 3 - 3] << "," << pc->vertexPositions[iEntry * 3 - 2] << "," << pc->vertexPositions[iEntry * 3 - 1] << std::endl;
+			  std::cout << pc->vertexPositions[(iEntry / subsample) * 3 - 3] << "," << pc->vertexPositions[(iEntry / subsample) * 3 - 2] << "," << pc->vertexPositions[(iEntry / subsample) * 3 - 1] << std::endl;
 		  }
 		  char* data = new char[28];
-		  if (iEntry >=0) {
+		  if (iEntry >= 0) {
 			  float x, y, z, nx, ny, nz;
 			  unsigned char r, g, b, a;
 			  inStream.read((char*)&x, 4);
@@ -1921,18 +1925,19 @@ private:
 			  inStream.read((char*)&b, 1);
 			  inStream.read((char*)&a, 1);
 			  //std::cout << x << "," << y << "," << z << " - " << nx << "," << ny << "," << nz << " - " << r << "," << g << "," << b << "," << a << std::endl;
+			  if (iEntry % subsample == 0) {
+				  pc->vertexPositions[(iEntry/subsample) * 3] = x * 10;
+				  pc->vertexPositions[(iEntry / subsample) * 3 + 1] = y * 10;
+				  pc->vertexPositions[(iEntry / subsample) * 3 + 2] = z * 10;
 
-			  pc->vertexPositions[iEntry * 3] = x;
-			  pc->vertexPositions[iEntry * 3+1] = y;
-			  pc->vertexPositions[iEntry * 3+2] = z;
+				  pc->vertexNormals[(iEntry / subsample) * 3] = nx;
+				  pc->vertexNormals[(iEntry / subsample) * 3 + 1] = ny;
+				  pc->vertexNormals[(iEntry / subsample) * 3 + 2] = nz;
 
-			  pc->vertexNormals[iEntry * 3] = nx;
-			  pc->vertexNormals[iEntry * 3+1] = ny;
-			  pc->vertexNormals[iEntry * 3+2] = nz;
-
-			  pc->vertexColors[iEntry * 3] = r;
-			  pc->vertexColors[iEntry * 3 + 1] = g;
-			  pc->vertexColors[iEntry * 3 + 2] = b;
+				  pc->vertexColors[(iEntry / subsample) * 3] = r;
+				  pc->vertexColors[(iEntry / subsample) * 3 + 1] = g;
+				  pc->vertexColors[(iEntry / subsample) * 3 + 2] = b;
+			  }
 
 			}
 		  delete data;
@@ -1949,9 +1954,10 @@ private:
 
 			//elem.properties[iP]->readNext(inStream);
         //}
-		if (iEntry == pc->getLength())
+		if (iEntry == pc->getLength()*subsample)
 			break;
       }
+	  pc->createRealVertexColors();
     }
   }
 

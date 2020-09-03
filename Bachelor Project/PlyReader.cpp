@@ -4,9 +4,9 @@
 #include "Point.h"
 #include <iostream>
 
-happly::PLYData readPly(const char* file) {
+happly::PLYData readPly(const char* file, int subsample) {
 	std::cout << "Opening ply file... " << std::endl;
-	happly::PLYData plyIn(file, true);
+	happly::PLYData plyIn(file, true, subsample);
 	std::cout << "Opened!" << std::endl;
 
 
