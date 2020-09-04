@@ -103,7 +103,7 @@ public:
 		Buffer nBuffer(sizeof(float) * 3, pc->getLength(), pc->vertexNormals, 2);
 		nBuffer.Bind();
 
-		Shader shader("SimpleVertexShader.vertexshader", "SimpleFragmentShader.fragmentshader");
+		Shader shader("shaders/SimpleVertexShader.vertexshader", "shaders/SimpleFragmentShader.fragmentshader");
 		unsigned int MatrixID = glGetUniformLocation(shader.getId(), "MVP");
 
 		shader.Bind();
