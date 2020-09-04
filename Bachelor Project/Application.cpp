@@ -1,5 +1,7 @@
 //Entry point for the program
 
+#define SIMPLE
+
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
 #include <stdlib.h>
@@ -32,7 +34,6 @@
 
 
 class Application {
-
 	void init() {
 		glPointSize(8);
 		glClearColor(0, 0, 0, 1);
@@ -103,17 +104,28 @@ public:
 		Buffer nBuffer(sizeof(float) * 3, pc->getLength(), pc->vertexNormals, 2);
 		nBuffer.Bind();
 
-		Shader shader("shaders/SimpleVertexShader.vertexshader", "shaders/SimpleFragmentShader.fragmentshader");
-		unsigned int MatrixID = glGetUniformLocation(shader.getId(), "MVP");
+#ifdef SIMPLE
+		Shader visualShader("shaders/SimpleVertexShader.vertexshader", "shaders/SimpleFragmentShader.fragmentshader");
+#else	
+		Shader visualShader("shaders/SimpleVertexShader.vertexshader", "shaders/SimpleFragmentShader.fragmentshader");
+		unsigned int DepthTexID = glGetUniformLocation(visualShader.getId(), "depthTexture");
+#endif
+		unsigned int MatrixID = glGetUniformLocation(visualShader.getId(), "MVP");
 
-		shader.Bind();
+		visualShader.Bind();
+
+		Shader depthShader("shaders/DepthVertexShader.vertexshader", "shaders/DepthFragmentShader.fragmentshader");
+		
+		unsigned int depthMatrixId = glGetUniformLocation(depthShader.getId(), "MVP");
+
 
 		std::cout << "Time to render" << std::endl;
 		/* Loop until the user closes the window */
 		while (!glfwWindowShouldClose(window))
 		{
-			/* Render here */
+#ifdef SIMPLE
 			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+			visualShader.Bind();
 
 			computeMatricesFromInputs(window);
 			glm::mat4 ProjectionMatrix = getProjectionMatrix();
@@ -122,16 +134,67 @@ public:
 			glm::mat4 MVP = ProjectionMatrix * ViewMatrix * ModelMatrix;
 
 			glUniformMatrix4fv(MatrixID, 1, GL_FALSE, &MVP[0][0]);
-
 			glDrawArrays(GL_POINTS, 0, pc->getLength());
-
-
 
 			/* Swap front and back buffers */
 			glfwSwapBuffers(window);
 
 			/* Poll for and process events */
 			glfwPollEvents();
+#else
+			computeMatricesFromInputs(window);
+			glm::mat4 ProjectionMatrix = getProjectionMatrix();
+			glm::mat4 ViewMatrix = getViewMatrix();
+			glm::mat4 ModelMatrix = glm::mat4(1.0);
+			glm::mat4 MVP = ProjectionMatrix * ViewMatrix * ModelMatrix;
+			/*glBindFramebuffer(GL_FRAMEBUFFER, depthRenderbuffer);
+			glViewport(0, 0, width, height); //Render on the entire framebuffer.
+
+			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+			depthShader.Bind();
+
+
+			glUniformMatrix4fv(depthMatrixId, 1, GL_FALSE, &MVP[0][0]);
+
+			vBuffer.Bind();
+
+			glDrawArrays(GL_POINTS, 0, pc->getLength());
+
+			vBuffer.Unbind();
+
+			//Time to render to screen again
+			glBindFramebuffer(GL_FRAMEBUFFER, 0);
+			glViewport(0, 0, width, height);
+			*/
+			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+			//Put the visual shader back
+			visualShader.Bind();
+			vBuffer.Bind();
+			//cBuffer.Bind();
+			nBuffer.Bind();
+
+			glUniformMatrix4fv(MatrixID, 1, GL_FALSE, &MVP[0][0]);
+
+			//Put in an active texture or smth 
+			glActiveTexture(GL_TEXTURE0);
+			glBindTexture(GL_TEXTURE_2D, depthTexture);
+			glUniform1i(DepthTexID, 0);
+			
+			//I'm not sure this is how I want to do it.
+			glDrawArrays(GL_POINTS, 0, pc->getLength());
+
+			vBuffer.Unbind();
+			//cBuffer.Unbind();
+			nBuffer.Unbind();
+
+			/* Swap front and back buffers */
+			glfwSwapBuffers(window);
+
+			/* Poll for and process events */
+			glfwPollEvents();
+#endif
 		}
 
 		glfwTerminate();
