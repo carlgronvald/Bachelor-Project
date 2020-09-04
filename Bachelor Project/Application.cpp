@@ -4,15 +4,14 @@
 #include <GLFW/glfw3.h>
 #include <stdlib.h>
 #include <time.h>
-#include <iostream>
-#include <fstream>
-#include <streambuf>
 #include "happly.h"
 
 #include "PointCloud.h"
 #include "Point.h"
 #include "PlyReader.h"
 #include "controls.h"
+#include "Shader.h"
+#include "Buffer.h"
 
 //srand(time(NULL));
 
@@ -34,67 +33,20 @@
 
 class Application {
 
-	static unsigned int CompileShader(const std::string& source, unsigned int type) {
-		unsigned int id = glCreateShader(type);
-		const char* src = source.c_str();
-		glShaderSource(id, 1, &src, nullptr);
-		glCompileShader(id);
-
-		GLint compiled;
-		glGetShaderiv(id, GL_COMPILE_STATUS, &compiled);
-		if (compiled != GL_TRUE)
-		{
-			GLsizei log_length = 0;
-			GLchar message[1024];
-			glGetShaderInfoLog(id, 1024, &log_length, message);
-
-			std::cout << message << std::endl;
-		}
-
-
-		return id;
-	}
-
-	static unsigned int CreateShader(const std::string& vertexShader, const std::string &fragmentShader) {
-		unsigned int program = glCreateProgram();
-		unsigned int vs = CompileShader(vertexShader, GL_VERTEX_SHADER);
-		unsigned int fs = CompileShader(fragmentShader, GL_FRAGMENT_SHADER);
-
-		glAttachShader(program, vs);
-		glAttachShader(program, fs);
-		glLinkProgram(program);
-		glValidateProgram(program);
-
-		glDeleteShader(vs);
-		glDeleteShader(fs);
-
-		std::cout << "Compiled shaders! " << std::endl;
-
-		return program;
-	}
-
-	static std::string readFile(const char* filename) {
-		std::string text;
-		std::ifstream myfile(filename);
-
-		myfile.seekg(0, std::ios::end);
-		text.reserve(myfile.tellg());
-		myfile.seekg(0, std::ios::beg);
-
-		text.assign((std::istreambuf_iterator<char>(myfile)),
-			std::istreambuf_iterator<char>());
-		return text;
-	}
-
 	void init() {
 		glPointSize(8);
 		glClearColor(0, 0, 0, 1);
+		glEnable(GL_DEPTH_TEST);
+		glDepthFunc(GL_LESS);
 	}
 public:
+
+	int width = 640, height = 480;
 	int main(void)
 	{
-		happly::PLYData p = readPly("summer_house.ply", 5);
-
+		happly::PLYData p = readPly("summer_house.ply", 1);
+		PointCloud* pc = p.pc;
+		std::cout << "Points: " << p.pc->getLength();
 
 		GLFWwindow* window;
 
@@ -104,7 +56,7 @@ public:
 
 
 		/* Create a windowed mode window and its OpenGL context */
-		window = glfwCreateWindow(640, 480, "Hello World", NULL, NULL);
+		window = glfwCreateWindow(width,height , "Photogrammetric Renderer", NULL, NULL);
 		if (!window)
 		{
 			glfwTerminate();
@@ -123,35 +75,45 @@ public:
 		// Init some stuff...
 		init();
 		
+		// The depth buffer
+		unsigned int depthRenderbuffer;
+		glGenRenderbuffers(1, &depthRenderbuffer);
+		glBindRenderbuffer(GL_RENDERBUFFER, depthRenderbuffer);
+		glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT, width, height);
+		glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, depthRenderbuffer);
+
+		// We'll make a depth texture for two-pass rendering.
+		unsigned int depthTexture;
+		glGenTextures(1, &depthTexture);
+		glBindTexture(GL_TEXTURE_2D, depthTexture);
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT24, width, height, 0, GL_DEPTH_COMPONENT, GL_FLOAT, 0);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+		
 		// Let's make a vertex buffer!
-		unsigned int vertexBuffer;
-		glGenBuffers(1, &vertexBuffer);
-		glBindBuffer(GL_ARRAY_BUFFER, vertexBuffer);
-		glBufferData(GL_ARRAY_BUFFER, p.pc->getLength() * sizeof(float), p.pc->vertexPositions, GL_STATIC_DRAW);
+		Buffer vBuffer(sizeof(float)*3, pc->getLength(), pc->vertexPositions, 0);
+		vBuffer.Bind();
 
-		glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), 0);
-		glEnableVertexAttribArray(0);
 		// And a color buffer!
-		unsigned int colorBuffer;
-		glGenBuffers(1, &colorBuffer);
-		glBindBuffer(GL_ARRAY_BUFFER, colorBuffer);
-		glBufferData(GL_ARRAY_BUFFER, p.pc->getLength() * sizeof(float), p.pc->realVertexColors, GL_STATIC_DRAW);
+		Buffer cBuffer(sizeof(float)*3, pc->getLength(), pc->realVertexColors, 1);
+		cBuffer.Bind();
 
-		glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), 0);
-		glEnableVertexAttribArray(1);
+		Buffer nBuffer(sizeof(float) * 3, pc->getLength(), pc->vertexNormals, 2);
+		nBuffer.Bind();
 
+		Shader shader("SimpleVertexShader.vertexshader", "SimpleFragmentShader.fragmentshader");
+		unsigned int MatrixID = glGetUniformLocation(shader.getId(), "MVP");
 
-		unsigned int shader = CreateShader(readFile("PassthroughVertexShader.vertexshader"), readFile("SimpleFragmentShader.fragmentshader"));
-		unsigned int MatrixID = glGetUniformLocation(shader, "MVP");
+		shader.Bind();
 
-		glUseProgram(shader);
-
-
+		std::cout << "Time to render" << std::endl;
 		/* Loop until the user closes the window */
 		while (!glfwWindowShouldClose(window))
 		{
 			/* Render here */
-			glClear(GL_COLOR_BUFFER_BIT);
+			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 			computeMatricesFromInputs(window);
 			glm::mat4 ProjectionMatrix = getProjectionMatrix();
@@ -159,10 +121,10 @@ public:
 			glm::mat4 ModelMatrix = glm::mat4(1.0);
 			glm::mat4 MVP = ProjectionMatrix * ViewMatrix * ModelMatrix;
 
-
 			glUniformMatrix4fv(MatrixID, 1, GL_FALSE, &MVP[0][0]);
 
-			glDrawArrays(GL_POINTS, 0, p.pc->getLength());
+			glDrawArrays(GL_POINTS, 0, pc->getLength());
+
 
 
 			/* Swap front and back buffers */
