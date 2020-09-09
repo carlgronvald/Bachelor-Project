@@ -1,5 +1,5 @@
 //Entry point for the program
-
+#pragma once
 //#define SIMPLE
 
 #include <GL/glew.h>
@@ -14,6 +14,7 @@
 #include "controls.h"
 #include "Shader.h"
 #include "Buffer.h"
+#include "Viewset.h"
 
 //srand(time(NULL));
 
@@ -46,9 +47,13 @@ public:
 	int width = 640, height = 480;
 	int main(void)
 	{
+		Viewset vs("testview");
+		std::cout << vs.getViews()[0].getPosition()[0] << ", " << vs.getViews()[0].getPosition()[1] << "," << vs.getViews()[0].getPosition()[2] << std::endl;
+
 		happly::PLYData p = readPly("summer_house.ply", 1);
 		PointCloud* pc = p.pc;
 		std::cout << "Points: " << p.pc->getLength();
+
 
 		GLFWwindow* window;
 
@@ -174,8 +179,17 @@ public:
 			computeMatricesFromInputs(window);
 			glm::mat4 ProjectionMatrix = getProjectionMatrix();
 			glm::mat4 ViewMatrix = getViewMatrix();
+			if (glfwGetKey(window, GLFW_KEY_C) == GLFW_PRESS) {
+				ViewMatrix = vs.getViews()[0].getViewMatrix();
+				std::cout << "Changing view stuff" << std::endl;
+			}
+			else {
+				std::cout << "not changing view stuff" << std::endl;
+			}
 			glm::mat4 ModelMatrix = glm::mat4(1.0);
 			glm::mat4 MVP = ProjectionMatrix * ViewMatrix * ModelMatrix;
+
+
 
 			glm::vec3 Position = getPosition();
 			glm::vec2 Angles = getAngles();
