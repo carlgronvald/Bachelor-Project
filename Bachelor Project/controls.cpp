@@ -5,25 +5,34 @@
 using namespace glm;
 #include "controls.h"
 
+#define PI 3.14159265f
 glm::mat4 ViewMatrix;
 glm::mat4 ProjectionMatrix;
-glm::mat4 getViewMatrix() {
-	return ViewMatrix;
-}
-glm::mat4 getProjectionMatrix() {
-	return ProjectionMatrix;
-}
 
 // Initial position : on +Z
 glm::vec3 position = glm::vec3(10, 50, 10);
+
 // Initial horizontal angle : toward -Z
-float horizontalAngle = 3.14f;
+float horizontalAngle = PI;
 // Initial vertical angle : none
 float verticalAngle = 0.0f;
 // Initial Field of View
 float initialFoV = 45.0f;
 float speed = 15.0f; // 3 units / second
 float mouseSpeed = 0.005f;
+
+glm::mat4 getViewMatrix() {
+	return ViewMatrix;
+}
+glm::mat4 getProjectionMatrix() {
+	return ProjectionMatrix;
+}
+glm::vec3 getPosition() {
+	return position;
+}
+glm::vec2 getAngles() {
+	return vec2(horizontalAngle, verticalAngle);
+}
 
 
 void computeMatricesFromInputs(GLFWwindow* window) {
@@ -40,6 +49,14 @@ void computeMatricesFromInputs(GLFWwindow* window) {
 	// Compute new orientation
 	horizontalAngle += mouseSpeed * float(1024 / 2 - xpos);
 	verticalAngle += mouseSpeed * float(768 / 2 - ypos);
+	if (horizontalAngle > PI)
+		horizontalAngle -= 2 * PI;
+	if (horizontalAngle < -PI)
+		horizontalAngle += 2 * PI;
+	if (verticalAngle > PI)
+		verticalAngle -= 2 * PI;
+	if (verticalAngle < -PI)
+		verticalAngle += 2 * PI;
 	// Direction : Spherical coordinates to Cartesian coordinates conversion
 	glm::vec3 direction(
 		cos(verticalAngle) * sin(horizontalAngle),

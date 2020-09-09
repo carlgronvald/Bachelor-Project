@@ -1,0 +1,21 @@
+#version 330 core
+
+layout(location=0) out vec4 color;
+
+uniform sampler2D tex;
+
+in vec2 UV;
+
+float near = 0.01; 
+float far  = 100.0; 
+  
+float LinearizeDepth(float depth) 
+{
+    float z = depth * 2.0 - 1.0; // back to NDC 
+    return (2.0 * near * far) / (far + near - z * (far - near));	
+}
+
+void main() {
+	float depth = LinearizeDepth(texture(tex,UV).x)/far;
+	color = vec4(vec3(depth),1.0);
+}

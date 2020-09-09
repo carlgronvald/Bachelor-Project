@@ -1,12 +1,28 @@
 #version 330 core
 
 in vec2 UV;
+in vec3 vColor;
 
 uniform sampler2D depthTexture;
 
 out vec3 color;
 
-void main() {
-	color =  vec3(0.5,0.5,0.5);
+float near = 0.01; 
+float far  = 100.0; 
+  
+float LinearizeDepth(float depth) 
+{
+    float z = depth * 2.0 - 1.0; // back to NDC 
+    return (2.0 * near * far) / (far + near - z * (far - near));	
 }
-//texture(depthTexture, UV).xyz +
+
+void main() {
+	float d = LinearizeDepth(texture(depthTexture,UV).x)/far;
+	//color = vColor;
+	//color = vec3(mod(UV.x,1),mod(UV.y,1),1.0);
+	color =  (1-d)*vColor;// + vec3(0.5,0.5,0.5);
+	//color = texture(depthTexture, UV*2-vec2(1)).xyz;
+	//f/loat depth = LinearizeDepth(gl_FragCoord.z)/far;
+	//color = vec3(depth);
+}
+//

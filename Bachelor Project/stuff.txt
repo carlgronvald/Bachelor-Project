@@ -1,85 +1,3 @@
-//Entry point for the program
-
-//#define SIMPLE
-
-#include <GL/glew.h>
-#include <GLFW/glfw3.h>
-#include <stdlib.h>
-#include <time.h>
-#include "happly.h"
-
-#include "PointCloud.h"
-#include "Point.h"
-#include "PlyReader.h"
-#include "controls.h"
-#include "Shader.h"
-#include "Buffer.h"
-
-//srand(time(NULL));
-
-//	PointCloud p(1500000);
-//
-//	for (int i = 0; i < p.getLength(); i++) {
-//		p.addPoint(Point(rand() % 100, rand() % 100, rand() % 100, rand() % 256, rand() % 256, rand() % 256));
-
-//std::cout << i << ": ";
-//p.getPoint(i).print();
-//	}
-
-//	PointCloud subsample(1500000 / 100);
-//	for (int i = 0; i < subsample.getLength(); i++) {
-//		subsample.addPoint(p.getPoint(i*(p.getLength() / subsample.getLength())));
-//	}
-
-
-
-class Application {
-	void init() {
-		glPointSize(8);
-		glClearColor(105/255.f, 189/255.f, 216/255.f, 1);
-		glDepthRange(0.01, 100);
-		glEnable(GL_DEPTH_TEST);
-		glDepthFunc(GL_LESS);
-	}
-public:
-
-	int width = 640, height = 480;
-	int main(void)
-	{
-		happly::PLYData p = readPly("summer_house.ply", 1);
-		PointCloud* pc = p.pc;
-		std::cout << "Points: " << p.pc->getLength();
-
-		GLFWwindow* window;
-
-		/* Initialize the library */
-		if (!glfwInit())
-			return -1;
-
-
-		/* Create a windowed mode window and its OpenGL context */
-		window = glfwCreateWindow(width,height , "Photogrammetric Renderer", NULL, NULL);
-		if (!window)
-		{
-			glfwTerminate();
-			return -1;
-		}
-
-		/* Make the window's context current */
-		glfwMakeContextCurrent(window);
-
-		glewExperimental = true;
-		/* Now we can init GLEW, since we have a valid context */
-		if (glewInit() != GLEW_OK) {
-			std::cout << "Error" << std::endl;
-		}
-
-		// Init some stuff...
-		init();
-		
-		unsigned int framebufferName = 0;
-		glGenFramebuffers(1, &framebufferName);
-		glBindFramebuffer(GL_FRAMEBUFFER, framebufferName);
 
 		// The depth buffer
 		unsigned int depthRenderbuffer;
@@ -101,7 +19,7 @@ public:
 
 		glFramebufferTexture(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, depthTexture, 0);
 
-		glDrawBuffer(GL_NONE);
+		//glDrawBuffer(GL_NONE);
 
 		if(glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
 			return -1;
@@ -176,14 +94,6 @@ public:
 			glm::mat4 ViewMatrix = getViewMatrix();
 			glm::mat4 ModelMatrix = glm::mat4(1.0);
 			glm::mat4 MVP = ProjectionMatrix * ViewMatrix * ModelMatrix;
-
-			glm::vec3 Position = getPosition();
-			glm::vec2 Angles = getAngles();
-
-			std::stringstream ss;
-			ss << "(" << Position[0] << "," << Position[1] << "," << Position[2] << ") (" << Angles[0] << "," << Angles[1] << ")";
-			glfwSetWindowTitle(window, ss.str().c_str());
-
 			glBindFramebuffer(GL_FRAMEBUFFER, depthRenderbuffer);
 			glViewport(0, 0, width, height); //Render on the entire framebuffer.
 
@@ -231,7 +141,7 @@ public:
 			cBuffer.Unbind();
 			nBuffer.Unbind();
 
-			glViewport(width/2, 0, width / 2, height / 2);
+			glViewport(0, height/2, width / 2, height / 2);
 			debugShader.Bind();
 
 			glActiveTexture(GL_TEXTURE0);
@@ -255,9 +165,3 @@ public:
 		glfwTerminate();
 		return 0;
 	}
-};
-
-int main(void) {
-	Application a;
-	return a.main();
-}
