@@ -3,12 +3,12 @@
 View::View() {
 
 }
-View::View(int id, glm::vec3 position, glm::vec3 rotation, std::string imgfile) : id(id), position(position), rotation(rotation) {
-	image = PNG(imgfile.c_str());
+View::View(int id, glm::vec3 position, glm::vec3 rotation, std::string imgfile) : id(id), position(position), rotation(rotation), texture(imgfile) {
+	
 }
 
-PNG View::getImage() {
-	return image;
+Texture View::getTexture() {
+	return texture;
 }
 glm::vec3 View::getPosition() {
 	return position;

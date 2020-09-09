@@ -6,12 +6,34 @@ layout(location=2) in vec3 normal;
 
 out vec2 UV;
 out vec3 vColor;
+out mat2 dUV;
+out vec2 vertexxy;
 
 uniform mat4 MVP;
+uniform mat4 viewMVP;
+//uniform vec3 cameraPos;
+//uniform vec3 extUp;
 
 void main() {
 	gl_Position = MVP * vec4(vertexPosition_modelspace, 1);
 
-	UV = ((gl_Position.xy/gl_Position.z)+vec2(1,1))/2;
+	vec4 viewPos = viewMVP * vec4(vertexPosition_modelspace,1);
+
+	vec2 pos = (gl_Position.xy/gl_Position.z);
+
+	vec2 maxXPos = pos.xy+vec2(8/640.0,0);
+	vec4 maxXdpos = inverse(MVP) * vec4(maxXPos*gl_Position.z, gl_Position.z, 1);
+	vec4 dUVx = (viewMVP * maxXdpos);
+
+	vec2 maxYPos = pos.xy+vec2(0,8/480.0);
+	vec4 maxYdpos = inverse(MVP) * vec4(maxYPos*gl_Position.z, gl_Position.z, 1);
+	vec4 dUVy = (viewMVP * maxYdpos);
+
+	dUV = mat2(dUVx.xy/dUVx.z, dUVy.xy/dUVy.z);
+	//dUV = mat2(1,0,0,1);
+	vertexxy = (pos+vec2(1,1))/2;
+
+
+	UV = ((viewPos.xy/viewPos.z)+vec2(1,1))/2; // Find the location in the top view camera.
 	vColor = color;
 }

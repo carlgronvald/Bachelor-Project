@@ -47,12 +47,6 @@ public:
 	int width = 640, height = 480;
 	int main(void)
 	{
-		Viewset vs("testview");
-		std::cout << vs.getViews()[0].getPosition()[0] << ", " << vs.getViews()[0].getPosition()[1] << "," << vs.getViews()[0].getPosition()[2] << std::endl;
-
-		happly::PLYData p = readPly("summer_house.ply", 1);
-		PointCloud* pc = p.pc;
-		std::cout << "Points: " << p.pc->getLength();
 
 
 		GLFWwindow* window;
@@ -81,6 +75,12 @@ public:
 
 		// Init some stuff...
 		init();
+		Viewset vs("testview");
+		std::cout << vs.getViews()[0].getPosition()[0] << ", " << vs.getViews()[0].getPosition()[1] << "," << vs.getViews()[0].getPosition()[2] << std::endl;
+
+		happly::PLYData p = readPly("testview/summer_house.ply", 1);
+		PointCloud* pc = p.pc;
+		std::cout << "Points: " << p.pc->getLength();
 		
 		unsigned int framebufferName = 0;
 		glGenFramebuffers(1, &framebufferName);
@@ -110,6 +110,8 @@ public:
 
 		if(glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
 			return -1;
+
+
 		
 		// Let's make a vertex buffer!
 		Buffer vBuffer(sizeof(float)*3, pc->getLength(), pc->vertexPositions, 0);
@@ -143,8 +145,10 @@ public:
 #else	
 		Shader visualShader("shaders/InterpVertexShader.vertexshader", "shaders/InterpFragmentShader.fragmentshader");
 		unsigned int DepthTexID = glGetUniformLocation(visualShader.getId(), "depthTexture");
+		unsigned int ExternalTexID = glGetUniformLocation(visualShader.getId(), "externalTexture");
 #endif
 		unsigned int MatrixID = glGetUniformLocation(visualShader.getId(), "MVP");
+		unsigned int ExternalMatrixID = glGetUniformLocation(visualShader.getId(), "viewMVP");
 
 		visualShader.Bind();
 
@@ -181,13 +185,11 @@ public:
 			glm::mat4 ViewMatrix = getViewMatrix();
 			if (glfwGetKey(window, GLFW_KEY_C) == GLFW_PRESS) {
 				ViewMatrix = vs.getViews()[0].getViewMatrix();
-				std::cout << "Changing view stuff" << std::endl;
 			}
-			else {
-				std::cout << "not changing view stuff" << std::endl;
-			}
+			glm::mat4 ExternalViewMatrix = vs.getViews()[0].getViewMatrix();
 			glm::mat4 ModelMatrix = glm::mat4(1.0);
 			glm::mat4 MVP = ProjectionMatrix * ViewMatrix * ModelMatrix;
+			glm::mat4 ExternalMVP = ProjectionMatrix * ExternalViewMatrix * ModelMatrix;
 
 
 
@@ -232,11 +234,16 @@ public:
 			nBuffer.Bind();
 
 			glUniformMatrix4fv(MatrixID, 1, GL_FALSE, &MVP[0][0]);
+			glUniformMatrix4fv(ExternalMatrixID, 1, GL_FALSE, &ExternalMVP[0][0]);
 
 			//Put in an active texture or smth 
 			glActiveTexture(GL_TEXTURE0);
 			glBindTexture(GL_TEXTURE_2D, depthTexture);
 			glUniform1i(DepthTexID, 0);
+
+			glActiveTexture(GL_TEXTURE1);
+			glBindTexture(GL_TEXTURE_2D, vs.getViews()[0].getTexture().getId());
+			glUniform1i(ExternalTexID, 1);
 			
 			//I'm not sure this is how I want to do it.
 			glDrawArrays(GL_POINTS, 0, pc->getLength());
@@ -249,7 +256,7 @@ public:
 			debugShader.Bind();
 
 			glActiveTexture(GL_TEXTURE0);
-			glBindTexture(GL_TEXTURE_2D, depthTexture);
+			glBindTexture(GL_TEXTURE_2D, vs.getViews()[0].getTexture().getId());
 			glUniform1i(debugTexId, 0);
 
 			dqBuffer.Bind();
