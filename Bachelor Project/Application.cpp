@@ -36,7 +36,7 @@
 
 class Application {
 	void init() {
-		glPointSize(8);
+		glPointSize(24);
 		glClearColor(105/255.f, 189/255.f, 216/255.f, 1);
 		glDepthRange(0.01, 100);
 		glEnable(GL_DEPTH_TEST);
@@ -245,6 +245,7 @@ public:
 			glBindTexture(GL_TEXTURE_2D, vs.getViews()[0].getTexture().getId());
 			glUniform1i(ExternalTexID, 1);
 			
+
 			//I'm not sure this is how I want to do it.
 			glDrawArrays(GL_POINTS, 0, pc->getLength());
 

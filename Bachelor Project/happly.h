@@ -1895,7 +1895,7 @@ private:
         std::cout << "  - Processing element: " << elem.name << std::endl;
       }
 	  if (elem.name == "vertex") {
-		  pc = new PointCloud(elem.count/subsample/100);
+		  pc = new PointCloud(elem.count/subsample/10);
 	  }
 
 
