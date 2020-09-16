@@ -2,7 +2,9 @@
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
 #include <string>
-#include "PNG.h"
+
+#include "stb_image.h"
+
 class Texture
 {
 public:
@@ -13,8 +15,7 @@ public:
 
 	unsigned int getId();
 private:
-	PNG p;
 	unsigned int id;
-	unsigned int width, height;
+	int width, height;
 };
 

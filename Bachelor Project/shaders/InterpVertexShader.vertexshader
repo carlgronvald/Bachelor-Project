@@ -21,20 +21,20 @@ void main() {
 
 	vec2 pos = (gl_Position.xy/gl_Position.z); //This is the screen position in the [-1,1] square.
 
-	vec2 maxXPos = pos.xy+vec2(24.0/640.0,0);
+	vec2 maxXPos = pos.xy+vec2(1.0,0);
 	vec4 maxXdpos = inverse(MVP) * vec4(maxXPos*gl_Position.z, gl_Position.z, gl_Position.w);
 	vec4 dxview = viewMVP * maxXdpos;
 
 	vec2 dUVx = (dxview.xy/dxview.z)-viewPos.xy/viewPos.z;
 
 
-	vec2 maxYPos = pos.xy+vec2(0,24.0/480.0);
+	vec2 maxYPos = pos.xy+vec2(0,1.0);
 	vec4 maxYdpos = inverse(MVP) * vec4(maxYPos*gl_Position.z, gl_Position.z, gl_Position.w);
 	vec4 dyview = viewMVP * maxYdpos;
 
 	vec2 dUVy = (dyview.xy/dyview.z)-viewPos.xy/viewPos.z;
 
-	dUV = mat2(	dUVx, dUVy )*20; //Why am I a factor 20 off????
+	dUV = mat2(	dUVx, dUVy );
 	//dUV = mat2(1,0,0,1);
 	vertexxy = (pos+vec2(1,1))/2;
 	//gl_Position = vec4(vec3(maxXPos*gl_Position.z, gl_Position.z), gl_Position.w);

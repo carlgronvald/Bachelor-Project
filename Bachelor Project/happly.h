@@ -1895,7 +1895,7 @@ private:
         std::cout << "  - Processing element: " << elem.name << std::endl;
       }
 	  if (elem.name == "vertex") {
-		  pc = new PointCloud(elem.count/subsample/10);
+		  pc = new PointCloud(elem.count/subsample);
 	  }
 
 
@@ -1916,6 +1916,7 @@ private:
 			  unsigned char r, g, b, a;
 			  inStream.read((char*)&x, 4);
 			  inStream.read((char*)&y, 4);
+			  y = -y;
 			  inStream.read((char*)&z, 4);
 			  inStream.read((char*)&nx, 4);
 			  inStream.read((char*)&ny, 4);
@@ -1923,7 +1924,10 @@ private:
 			  inStream.read((char*)&r, 1);
 			  inStream.read((char*)&g, 1);
 			  inStream.read((char*)&b, 1);
-			  inStream.read((char*)&a, 1);
+			  if (elem.count == 10)
+				  inStream.read((char*)&a, 1);
+			  else
+				  a = 255;
 			  //std::cout << x << "," << y << "," << z << " - " << nx << "," << ny << "," << nz << " - " << r << "," << g << "," << b << "," << a << std::endl;
 			  if (iEntry % subsample == 0) {
 				  pc->vertexPositions[(iEntry/subsample) * 3] = x * 10;

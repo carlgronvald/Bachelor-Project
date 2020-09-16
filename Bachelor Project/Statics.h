@@ -11,6 +11,6 @@
 
 std::string readFile(const char* filename);
 
-std::vector<std::pair<std::string, std::vector<float>>> readCsv(std::string filename);
+std::vector<std::pair<std::string, std::vector<float>>> readCsv(std::string filename, char delimiter=',');
 
 std::string padnumber(int number);

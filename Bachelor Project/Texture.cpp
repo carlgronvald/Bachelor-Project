@@ -7,8 +7,8 @@ Texture::Texture() {
 
 Texture::Texture(std::string file)
 {
-	p = PNG(file.c_str());
-	
+	int bpp;
+	unsigned char* rgb_image = stbi_load(file.c_str(), &width, &height, &bpp, 3);
 
 	glGenTextures(1, &id);
 	glBindTexture(GL_TEXTURE_2D, id);
@@ -18,11 +18,8 @@ Texture::Texture(std::string file)
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_COMPARE_FUNC, GL_LEQUAL);
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, p.getWidth(), p.getHeight(), 0, GL_RGBA, GL_UNSIGNED_BYTE, p.dataReference());
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width,height, 0, GL_RGB, GL_UNSIGNED_BYTE, rgb_image);
 	glBindTexture(GL_TEXTURE_2D, 0);
-
-	width = p.getWidth();
-	height = p.getHeight();
 }
 
 

@@ -16,6 +16,8 @@
 #include "Buffer.h"
 #include "Viewset.h"
 
+#define STB_IMAGE_IMPLEMENTATION
+#include "stb_image.h"
 //srand(time(NULL));
 
 //	PointCloud p(1500000);
@@ -47,7 +49,7 @@ public:
 	int width = 640, height = 480;
 	int main(void)
 	{
-
+		stbi_set_flip_vertically_on_load(true);
 
 		GLFWwindow* window;
 
@@ -75,13 +77,14 @@ public:
 
 		// Init some stuff...
 		init();
+		std::cout << "making testview! " << std::endl;
 		Viewset vs("testview");
 		std::cout << vs.getViews()[0].getPosition()[0] << ", " << vs.getViews()[0].getPosition()[1] << "," << vs.getViews()[0].getPosition()[2] << std::endl;
 
-		happly::PLYData p = readPly("testview/summer_house.ply", 1);
+		happly::PLYData p = readPly("testview/outside.ply", 1);
 		PointCloud* pc = p.pc;
 		std::cout << "Points: " << p.pc->getLength();
-		
+#ifndef SIMPLE
 		unsigned int framebufferName = 0;
 		glGenFramebuffers(1, &framebufferName);
 		glBindFramebuffer(GL_FRAMEBUFFER, framebufferName);
@@ -110,7 +113,7 @@ public:
 
 		if(glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
 			return -1;
-
+#endif
 
 		
 		// Let's make a vertex buffer!
@@ -146,9 +149,9 @@ public:
 		Shader visualShader("shaders/InterpVertexShader.vertexshader", "shaders/InterpFragmentShader.fragmentshader");
 		unsigned int DepthTexID = glGetUniformLocation(visualShader.getId(), "depthTexture");
 		unsigned int ExternalTexID = glGetUniformLocation(visualShader.getId(), "externalTexture");
+		unsigned int ExternalMatrixID = glGetUniformLocation(visualShader.getId(), "viewMVP");
 #endif
 		unsigned int MatrixID = glGetUniformLocation(visualShader.getId(), "MVP");
-		unsigned int ExternalMatrixID = glGetUniformLocation(visualShader.getId(), "viewMVP");
 
 		visualShader.Bind();
 

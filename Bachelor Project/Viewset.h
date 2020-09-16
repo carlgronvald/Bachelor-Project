@@ -2,7 +2,6 @@
 
 #include "Statics.h"
 #include "glm/glm.hpp"
-#include "PNG.h"
 #include "View.h"
 
 class Viewset {

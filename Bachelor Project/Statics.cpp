@@ -14,7 +14,7 @@ std::string readFile(const char* filename) {
 	return text;
 }
 
-std::vector<std::pair<std::string, std::vector<float>>> readCsv(std::string filename) {
+std::vector<std::pair<std::string, std::vector<float>>> readCsv(std::string filename, char delimiter) {
 	// Reads a CSV file into a vector of <string, vector<int>> pairs where
 	// each pair represents <column name, column values>
 
@@ -41,8 +41,8 @@ std::vector<std::pair<std::string, std::vector<float>>> readCsv(std::string file
 		std::stringstream ss(line);
 
 		// Extract each column name
-		while (std::getline(ss, colname, ',')) {
-
+		while (std::getline(ss, colname, delimiter)) {
+			std::cout << "reading something " << colname << std::endl;
 			// Initialize and add <colname, int vector> pairs to result
 			result.push_back({ colname, std::vector<float> {} });
 		}
@@ -64,7 +64,7 @@ std::vector<std::pair<std::string, std::vector<float>>> readCsv(std::string file
 			result.at(colIdx).second.push_back(val);
 
 			// If the next token is a comma, ignore it and move on
-			if (ss.peek() == ',') ss.ignore();
+			if (ss.peek() == delimiter) ss.ignore();
 
 			// Increment the column index
 			colIdx++;

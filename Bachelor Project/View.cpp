@@ -6,6 +6,10 @@ View::View() {
 View::View(int id, glm::vec3 position, glm::vec3 rotation, std::string imgfile) : id(id), position(position), rotation(rotation), texture(imgfile) {
 	
 }
+View::View(int id, glm::quat quaternion, glm::vec3 translation, std::string imgfile) : id(id), position(translation), texture(imgfile) {
+	rotation = glm::eulerAngles(quaternion);
+
+}
 
 Texture View::getTexture() {
 	return texture;
