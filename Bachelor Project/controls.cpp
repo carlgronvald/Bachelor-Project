@@ -10,7 +10,7 @@ glm::mat4 ViewMatrix;
 glm::mat4 ProjectionMatrix;
 
 // Initial position : on +Z
-glm::vec3 position = glm::vec3(10, 50, 10);
+glm::vec3 position = glm::vec3(3, 3, 0);
 
 // Initial horizontal angle : toward -Z
 float horizontalAngle = PI;
@@ -18,7 +18,7 @@ float horizontalAngle = PI;
 float verticalAngle = 0.0f;
 // Initial Field of View
 float initialFoV = 45.0f;
-float speed = 15.0f; // 3 units / second
+float speed = 1.5f; // 3 units / second
 float mouseSpeed = 0.005f;
 
 glm::mat4 getViewMatrix() {
@@ -94,7 +94,7 @@ void computeMatricesFromInputs(GLFWwindow* window) {
 	ViewMatrix = glm::lookAt(
 		position,           // Camera is here 
 		position + direction, // and looks here : at the same position, plus "direction"
-		up                  // Head is up (set to 0,-1,0 to look upside-down)
+		-up                  // Head is up (set to 0,-1,0 to look upside-down)
 	);
 	// For the next frame, the "last time" will be "now"
 	lastTime = currentTime;

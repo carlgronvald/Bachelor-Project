@@ -117,6 +117,7 @@ public:
 
 		
 		// Let's make a vertex buffer!
+		
 		Buffer vBuffer(sizeof(float)*3, pc->getLength(), pc->vertexPositions, 0);
 		vBuffer.Bind();
 		
@@ -126,6 +127,30 @@ public:
 
 		Buffer nBuffer(sizeof(float) * 3, pc->getLength(), pc->vertexNormals, 2);
 		nBuffer.Bind();
+
+
+		// TEMPORARY FOR TESTING
+		int vsize = vs.getViews().size();
+		float* viewLocs = new float[vs.getViews().size() * 3];
+		float* viewCols = new float[vs.getViews().size() * 3];
+		float* viewNs = new float[vs.getViews().size() * 3];
+
+		for (int i = 0; i < vs.getViews().size(); i++) {
+			View v = vs.getViews()[i];
+			viewLocs[i * 3] = v.getPosition()[0];
+			viewLocs[i * 3 + 1] = v.getPosition()[1];
+			viewLocs[i * 3 + 2] = v.getPosition()[2];
+		}
+
+		Buffer v2Buffer(sizeof(float) * 3, vsize, viewLocs, 0);
+		v2Buffer.Bind();
+
+		// And a color buffer!
+		Buffer c2Buffer(sizeof(float) * 3, vsize, viewCols, 1);
+		c2Buffer.Bind();
+
+		Buffer n2Buffer(sizeof(float) * 3, vsize, viewNs, 2);
+		n2Buffer.Bind();
 
 
 		float debugQuad[18] = {
@@ -192,7 +217,10 @@ public:
 			glm::mat4 ExternalViewMatrix = vs.getViews()[0].getViewMatrix();
 			glm::mat4 ModelMatrix = glm::mat4(1.0);
 			glm::mat4 MVP = ProjectionMatrix * ViewMatrix * ModelMatrix;
-			glm::mat4 ExternalMVP = ProjectionMatrix * ExternalViewMatrix * ModelMatrix;
+
+			glm::mat4 ExternalProjectionMatrix = glm::perspective(glm::radians(67.f), 3/4.f, 0.1f, 100.0f);
+
+			glm::mat4 ExternalMVP = ExternalProjectionMatrix * ExternalViewMatrix * ModelMatrix;
 
 
 
@@ -226,7 +254,9 @@ public:
 			//Time to render to screen again
 			glBindFramebuffer(GL_FRAMEBUFFER, 0);
 			glViewport(0, 0, width, height);
-			
+
+			glPointSize(5);
+
 			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 			//Put the visual shader back
@@ -255,6 +285,17 @@ public:
 			vBuffer.Unbind();
 			cBuffer.Unbind();
 			nBuffer.Unbind();
+
+			glPointSize(72);
+
+
+			v2Buffer.Bind();
+			c2Buffer.Bind();
+			n2Buffer.Bind();
+			glDrawArrays(GL_POINTS, 0, vsize);
+			v2Buffer.Unbind();
+			c2Buffer.Unbind();
+			n2Buffer.Unbind();
 
 			glViewport(width/2, 0, width / 2, height / 2);
 			debugShader.Bind();

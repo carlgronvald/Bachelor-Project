@@ -1916,7 +1916,6 @@ private:
 			  unsigned char r, g, b, a;
 			  inStream.read((char*)&x, 4);
 			  inStream.read((char*)&y, 4);
-			  y = -y;
 			  inStream.read((char*)&z, 4);
 			  inStream.read((char*)&nx, 4);
 			  inStream.read((char*)&ny, 4);
@@ -1930,9 +1929,9 @@ private:
 				  a = 255;
 			  //std::cout << x << "," << y << "," << z << " - " << nx << "," << ny << "," << nz << " - " << r << "," << g << "," << b << "," << a << std::endl;
 			  if (iEntry % subsample == 0) {
-				  pc->vertexPositions[(iEntry/subsample) * 3] = x * 10;
-				  pc->vertexPositions[(iEntry / subsample) * 3 + 1] = y * 10;
-				  pc->vertexPositions[(iEntry / subsample) * 3 + 2] = z * 10;
+				  pc->vertexPositions[(iEntry/subsample) * 3] = x ;
+				  pc->vertexPositions[(iEntry / subsample) * 3 + 1] = y ;
+				  pc->vertexPositions[(iEntry / subsample) * 3 + 2] = z ;
 
 				  pc->vertexNormals[(iEntry / subsample) * 3] = nx;
 				  pc->vertexNormals[(iEntry / subsample) * 3 + 1] = ny;
