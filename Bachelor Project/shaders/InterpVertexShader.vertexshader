@@ -7,37 +7,45 @@ layout(location=2) in vec3 normal;
 out vec2 UV;
 out vec3 vColor;
 out mat2 dUV;
+out mat2 dUV2;
 out vec2 vertexxy;
 
 uniform mat4 MVP;
 uniform mat4 viewMVP;
+uniform mat4 viewMVP2;
 //uniform vec3 cameraPos;
 //uniform vec3 extUp;
 
 void main() {
 	gl_Position = MVP * vec4(vertexPosition_modelspace, 1);
 
-	vec4 viewPos = viewMVP * vec4(vertexPosition_modelspace,1);
 
 	vec2 pos = (gl_Position.xy/gl_Position.z); //This is the screen position in the [-1,1] square.
 
 	vec2 maxXPos = pos.xy+vec2(1.0,0);
-	vec4 maxXdpos = inverse(MVP) * vec4(maxXPos*gl_Position.z, gl_Position.z, gl_Position.w);
-	vec4 dxview = viewMVP * maxXdpos;
-
-	vec2 dUVx = (dxview.xy/dxview.z)-viewPos.xy/viewPos.z;
-
-
 	vec2 maxYPos = pos.xy+vec2(0,1.0);
+	vec4 maxXdpos = inverse(MVP) * vec4(maxXPos*gl_Position.z, gl_Position.z, gl_Position.w);
 	vec4 maxYdpos = inverse(MVP) * vec4(maxYPos*gl_Position.z, gl_Position.z, gl_Position.w);
+	
+	vec4 dxview = viewMVP * maxXdpos;
 	vec4 dyview = viewMVP * maxYdpos;
-
+	
+	vec4 viewPos = viewMVP * vec4(vertexPosition_modelspace,1);
+	vec2 dUVx = (dxview.xy/dxview.z)-viewPos.xy/viewPos.z;
 	vec2 dUVy = (dyview.xy/dyview.z)-viewPos.xy/viewPos.z;
 
 	dUV = mat2(	dUVx, dUVy );
-	//dUV = mat2(1,0,0,1);
+
+	vec4 dxview = viewMVP2 * maxXdpos;
+	vec4 dyview = viewMVP2 * maxYdpos;
+	
+	vec4 viewPos = viewMVP2 * vec4(vertexPosition_modelspace,1);
+	vec2 dUVx = (dxview.xy/dxview.z)-viewPos.xy/viewPos.z;
+	vec2 dUVy = (dyview.xy/dyview.z)-viewPos.xy/viewPos.z;
+
+	dUV2 = mat2(dUVx, dUVy );
+
 	vertexxy = (pos+vec2(1,1))/2;
-	//gl_Position = vec4(vec3(maxXPos*gl_Position.z, gl_Position.z), gl_Position.w);
 
 
 	UV = ((viewPos.xy/viewPos.z)+vec2(1,1))/2; // Find the location in the top view camera.

@@ -38,11 +38,32 @@
 
 class Application {
 	void init() {
-		glPointSize(24);
-		glClearColor(105/255.f, 189/255.f, 216/255.f, 1);
+		glPointSize(8);
+		glClearColor(1,1,1, 1); //105/255.f, 189/255.f, 216/255.f
 		glDepthRange(0.01, 100);
 		glEnable(GL_DEPTH_TEST);
 		glDepthFunc(GL_LESS);
+	}
+
+
+#define VIEW_CHOICE_METHOD_BEST_DOT // This one works by just choosing the view with the best dot product - entirely view dependant
+
+	View ChooseView(glm::vec3 position, glm::vec3 direction, Viewset viewset) {
+		int closestView = 0;
+		double bestDot = -1;
+
+
+
+#ifdef VIEW_CHOICE_METHOD_BEST_DOT
+		for (int i = 0; i < viewset.getViews().size(); i++) {
+			if (glm::dot(viewset.getViews()[i].getDirection(), direction) > bestDot) {
+				bestDot = glm::dot(viewset.getViews()[i].getDirection(), direction);
+				closestView = i;
+			}
+		}
+#endif
+
+		return viewset.getViews()[closestView];
 	}
 public:
 
@@ -81,7 +102,7 @@ public:
 		Viewset vs("testview");
 		std::cout << vs.getViews()[0].getPosition()[0] << ", " << vs.getViews()[0].getPosition()[1] << "," << vs.getViews()[0].getPosition()[2] << std::endl;
 
-		happly::PLYData p = readPly("testview/outside.ply", 1);
+		happly::PLYData p = readPly("testview/newoutside.ply", 1);
 		PointCloud* pc = p.pc;
 		std::cout << "Points: " << p.pc->getLength();
 #ifndef SIMPLE
@@ -171,10 +192,15 @@ public:
 #ifdef SIMPLE
 		Shader visualShader("shaders/SimpleVertexShader.vertexshader", "shaders/SimpleFragmentShader.fragmentshader");
 #else	
-		Shader visualShader("shaders/InterpVertexShader.vertexshader", "shaders/InterpFragmentShader.fragmentshader");
+		Shader visualShader("shaders/TestInterpVertexShader.vertexshader", "shaders/TestInterpFragmentShader.fragmentshader");
 		unsigned int DepthTexID = glGetUniformLocation(visualShader.getId(), "depthTexture");
 		unsigned int ExternalTexID = glGetUniformLocation(visualShader.getId(), "externalTexture");
+		unsigned int ExternalTex2ID = glGetUniformLocation(visualShader.getId(), "externalTexture2");
 		unsigned int ExternalMatrixID = glGetUniformLocation(visualShader.getId(), "viewMVP");
+		unsigned int ExternalMatrix2ID = glGetUniformLocation(visualShader.getId(), "viewMVP2");
+
+		unsigned int ExternalViewDirID = glGetUniformLocation(visualShader.getId(), "viewDir");
+		unsigned int ExternalViewDir2ID = glGetUniformLocation(visualShader.getId(), "viewDir2");
 #endif
 		unsigned int MatrixID = glGetUniformLocation(visualShader.getId(), "MVP");
 
@@ -209,23 +235,32 @@ public:
 			glfwPollEvents();
 #else
 			computeMatricesFromInputs(window);
-			glm::mat4 ProjectionMatrix = getProjectionMatrix();
-			glm::mat4 ViewMatrix = getViewMatrix();
-			if (glfwGetKey(window, GLFW_KEY_C) == GLFW_PRESS) {
-				ViewMatrix = vs.getViews()[0].getViewMatrix();
-			}
-			glm::mat4 ExternalViewMatrix = vs.getViews()[0].getViewMatrix();
-			glm::mat4 ModelMatrix = glm::mat4(1.0);
-			glm::mat4 MVP = ProjectionMatrix * ViewMatrix * ModelMatrix;
-
-			glm::mat4 ExternalProjectionMatrix = glm::perspective(glm::radians(67.f), 3/4.f, 0.1f, 100.0f);
-
-			glm::mat4 ExternalMVP = ExternalProjectionMatrix * ExternalViewMatrix * ModelMatrix;
-
 
 
 			glm::vec3 Position = getPosition();
 			glm::vec2 Angles = getAngles();
+			glm::vec3 Direction = getDirection();
+
+			View relevantView = ChooseView(Position, Direction, vs);
+
+			glm::mat4 ProjectionMatrix = getProjectionMatrix();
+			glm::mat4 ViewMatrix = getViewMatrix();
+			if (glfwGetKey(window, GLFW_KEY_C) == GLFW_PRESS) {
+				ViewMatrix = relevantView.getViewMatrix();
+			}
+			glm::mat4 ModelMatrix = glm::mat4(1.0);
+			glm::mat4 MVP = ProjectionMatrix * ViewMatrix * ModelMatrix;
+
+			glm::mat4 ExternalViewMatrix = relevantView.getViewMatrix();
+			glm::mat4 ExternalProjectionMatrix = glm::perspective(glm::radians(67.f), 3/4.f, 0.1f, 100.0f);
+			glm::mat4 ExternalMVP = ExternalProjectionMatrix * ExternalViewMatrix * ModelMatrix;
+
+			glm::mat4 ExternalViewMatrix2 = vs.getViews()[1].getViewMatrix();
+			glm::mat4 ExternalProjectionMatrix2 = glm::perspective(glm::radians(67.f), 3 / 4.f, 0.1f, 100.0f);
+			glm::mat4 ExternalMVP2 = ExternalProjectionMatrix2 * ExternalViewMatrix2 * ModelMatrix;
+
+
+
 
 			std::stringstream ss;
 			ss << "(" << Position[0] << "," << Position[1] << "," << Position[2] << ") (" << Angles[0] << "," << Angles[1] << ")";
@@ -255,7 +290,7 @@ public:
 			glBindFramebuffer(GL_FRAMEBUFFER, 0);
 			glViewport(0, 0, width, height);
 
-			glPointSize(5);
+			glPointSize(8);
 
 			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
@@ -268,6 +303,11 @@ public:
 
 			glUniformMatrix4fv(MatrixID, 1, GL_FALSE, &MVP[0][0]);
 			glUniformMatrix4fv(ExternalMatrixID, 1, GL_FALSE, &ExternalMVP[0][0]);
+			glUniformMatrix4fv(ExternalMatrix2ID, 1, GL_FALSE, &ExternalMVP2[0][0]);
+			glm::vec3 vector(1, 0, 0);
+			glm::vec3 vector2(0.0, 1, 1);
+			glUniform3fv(ExternalViewDirID, 1, &vector[0]);
+			glUniform3fv(ExternalViewDir2ID, 1, &vector2[0]);
 
 			//Put in an active texture or smth 
 			glActiveTexture(GL_TEXTURE0);
@@ -275,8 +315,11 @@ public:
 			glUniform1i(DepthTexID, 0);
 
 			glActiveTexture(GL_TEXTURE1);
-			glBindTexture(GL_TEXTURE_2D, vs.getViews()[0].getTexture().getId());
+			glBindTexture(GL_TEXTURE_2D, relevantView.getTexture().getId());
 			glUniform1i(ExternalTexID, 1);
+			glActiveTexture(GL_TEXTURE2);
+			glBindTexture(GL_TEXTURE_2D, vs.getViews()[1].getTexture().getId());
+			glUniform1i(ExternalTex2ID, 2);
 			
 
 			//I'm not sure this is how I want to do it.
@@ -306,7 +349,7 @@ public:
 
 			dqBuffer.Bind();
 
-			glDrawArrays(GL_TRIANGLES, 0, 6);
+			//glDrawArrays(GL_TRIANGLES, 0, 6);
 
 			dqBuffer.Unbind();
 

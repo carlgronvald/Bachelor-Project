@@ -11,6 +11,7 @@ public:
 
 	Texture getTexture();
 	glm::vec3 getPosition();
+	glm::vec3 getDirection();
 	glm::mat3 getRotation();
 	glm::mat4 getViewMatrix();
 

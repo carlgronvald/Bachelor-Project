@@ -24,24 +24,7 @@ void main() {
 	
 	float d = LinearizeDepth(texture(depthTexture,screenxy).x);
 	
-
-	//color = vColor;
-	//color = vec3(mod(UV.x,1),mod(UV.y,1),1.0);
-	
-	//color = vec3((screenxy-vertexxy)*10,0);
-	
-	vec2 finalUV = dUV*(screenxy-vertexxy)+UV;
-	finalUV = finalUV * 5;
 	color = texture(externalTexture, dUV*(screenxy-vertexxy)+UV).xyz;
 	
-	//color = vec3((screenxy-vertexxy).x, (screenxy-vertexxy).y, 1);
-	//color = vec3(mod((finalUV).x,1),mod((finalUV).y,1),1);
-	//color = vec3(mod(dUV[0][0],1),mod(dUV[0][1],1),1);
-	//color = texture(externalTexture, vec2(mod(finalUV.x,1),mod(finalUV.y,1))).xyz;
-	//color = vec3(mod(gl_FragCoord.x/320,1), mod(gl_FragCoord.y/240,1),1);
-	//color =  (1-d)*vColor;// + vec3(0.5,0.5,0.5);
-	//color = texture(depthTexture, UV*2-vec2(1)).xyz;
-	//f/loat depth = LinearizeDepth(gl_FragCoord.z)/far;
-	//color = vec3(depth);
 }
 //

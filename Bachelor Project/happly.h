@@ -1897,7 +1897,7 @@ private:
 	  if (elem.name == "vertex") {
 		  pc = new PointCloud(elem.count/subsample);
 	  }
-
+	  int deadNormals = 0;
 
       for (size_t iP = 0; iP < elem.properties.size(); iP++) {
 		  std::cout << "Doing property stuff " << iP << "/" << elem.properties.size()-1 << std::endl;
@@ -1923,7 +1923,7 @@ private:
 			  inStream.read((char*)&r, 1);
 			  inStream.read((char*)&g, 1);
 			  inStream.read((char*)&b, 1);
-			  if (elem.count == 10)
+			  if (elem.properties.size() == 10)
 				  inStream.read((char*)&a, 1);
 			  else
 				  a = 255;
@@ -1932,6 +1932,7 @@ private:
 				  pc->vertexPositions[(iEntry/subsample) * 3] = x ;
 				  pc->vertexPositions[(iEntry / subsample) * 3 + 1] = y ;
 				  pc->vertexPositions[(iEntry / subsample) * 3 + 2] = z ;
+
 
 				  pc->vertexNormals[(iEntry / subsample) * 3] = nx;
 				  pc->vertexNormals[(iEntry / subsample) * 3 + 1] = ny;
@@ -1960,6 +1961,7 @@ private:
 		if (iEntry == pc->getLength()*subsample)
 			break;
       }
+	  std::cout << "There were " << deadNormals << " dead normals " << std::endl;
 	  pc->createRealVertexColors();
     }
   }

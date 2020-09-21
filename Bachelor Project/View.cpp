@@ -16,6 +16,9 @@ glm::vec3 View::getPosition() {
 glm::mat3 View::getRotation() {
 	return rotation;
 }
+glm::vec3 View::getDirection() {
+	return -glm::transpose(rotation) * glm::vec3(0, 0, -1);
+}
 
 glm::mat4 View::getViewMatrix() {
 	// Direction : Spherical coordinates to Cartesian coordinates conversion

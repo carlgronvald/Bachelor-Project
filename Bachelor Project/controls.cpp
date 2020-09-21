@@ -30,6 +30,13 @@ glm::mat4 getProjectionMatrix() {
 glm::vec3 getPosition() {
 	return position;
 }
+glm::vec3 getDirection() {
+	return glm::vec3(
+		cos(verticalAngle) * sin(horizontalAngle),
+		sin(verticalAngle),
+		cos(verticalAngle) * cos(horizontalAngle)
+	);
+}
 glm::vec2 getAngles() {
 	return vec2(horizontalAngle, verticalAngle);
 }
