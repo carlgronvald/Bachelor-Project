@@ -1,0 +1,58 @@
+#version 330 core
+
+layout(location=0) in vec3 vertexPosition_modelspace;
+layout(location=1) in vec3 color;
+layout(location=2) in vec3 normal;
+
+out vec2 UVs[5];
+out vec3 vColor;
+out mat2 dUV[5];
+out vec2 vertexxy;
+out float viewParts[5];
+
+uniform mat4 MVP;
+uniform mat4 viewMVP[5];
+uniform vec3 viewDir[5];
+
+
+void main() {
+	gl_Position = MVP * vec4(vertexPosition_modelspace, 1);
+
+	//viewParts = vec2( viewDir[0], viewDir2[0] );
+
+	vec2 pos = (gl_Position.xy/gl_Position.w); //This is the screen position in the [-1,1] square.
+
+	vec2 maxXPos = pos.xy+vec2(1.0,0);
+	vec2 maxYPos = pos.xy+vec2(0,1.0);
+	
+	vec4 maxXdpos,maxYdpos;
+	vec4 dxview,dyview;
+	vec4 viewPos;
+	vec2 dUVx,dUVy;
+
+	float totalViewPart = 0;
+	for(int i=0;i<5;i++) {
+	
+		maxXdpos = inverse(MVP) * vec4(maxXPos*gl_Position.w, gl_Position.z, gl_Position.w);
+		maxYdpos = inverse(MVP) * vec4(maxYPos*gl_Position.w, gl_Position.z, gl_Position.w);
+		
+		dxview = viewMVP[i] * maxXdpos;
+		dyview = viewMVP[i] * maxYdpos;
+	
+		viewPos = viewMVP[i] * vec4(vertexPosition_modelspace,1);
+		dUVx = (dxview.xy/dxview.w)-viewPos.xy/viewPos.w;
+		dUVy = (dyview.xy/dyview.w)-viewPos.xy/viewPos.w;
+
+		viewParts[i] = pow(clamp((dot(viewDir[i], normal)+1)/2  - ( pow( dot( viewPos.xy/viewPos.z, vec2(1) ), 5) ) ,0,1), 2);
+		totalViewPart += viewParts[i];
+		UVs[i] = ((viewPos.xy/viewPos.w)+vec2(1,1))/2;
+		dUV[i] = mat2(dUVx,dUVy);
+	}
+	for(int i=0;i<5;i++) {
+		viewParts[i] /= totalViewPart;
+	}
+	vertexxy = (pos+vec2(1))/2;
+
+
+	vColor = color;
+}

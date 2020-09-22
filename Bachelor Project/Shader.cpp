@@ -34,7 +34,6 @@ unsigned int CreateShader(const std::string& vertexShader, const std::string &fr
 	glDeleteShader(vs);
 	glDeleteShader(fs);
 
-	std::cout << "Compiled shaders! " << std::endl;
 
 	return program;
 }
@@ -42,6 +41,7 @@ unsigned int CreateShader(const std::string& vertexShader, const std::string &fr
 Shader::Shader(const char* vertexShaderFile, const char* fragmentShaderFile)
 {
 	this->id = CreateShader(readFile(vertexShaderFile), readFile(fragmentShaderFile));
+	std::cout << "Compiled shaders " << vertexShaderFile << " and " << fragmentShaderFile << "!" << std::endl;
 }
 
 

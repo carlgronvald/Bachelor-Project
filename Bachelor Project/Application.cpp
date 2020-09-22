@@ -1,6 +1,7 @@
 //Entry point for the program
 #pragma once
 //#define SIMPLE
+#define MULTIPLE_VIEWS
 
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
@@ -66,10 +67,15 @@ class Application {
 		return viewset.getViews()[closestView];
 	}
 public:
-
+	bool multipleViews;
 	int width = 640, height = 480;
+	unsigned int textureSlots[5] = { GL_TEXTURE1, GL_TEXTURE2, GL_TEXTURE3, GL_TEXTURE4, GL_TEXTURE5 };
+
 	int main(void)
 	{
+#ifdef MULTIPLE_VIEWS
+		multipleViews = true;
+#endif
 		stbi_set_flip_vertically_on_load(true);
 
 		GLFWwindow* window;
@@ -101,6 +107,15 @@ public:
 		std::cout << "making testview! " << std::endl;
 		Viewset vs("testview");
 		std::cout << vs.getViews()[0].getPosition()[0] << ", " << vs.getViews()[0].getPosition()[1] << "," << vs.getViews()[0].getPosition()[2] << std::endl;
+#ifdef MULTIPLE_VIEWS
+		View relevantViews[] = {
+			vs.getViews()[0],
+			vs.getViews()[5],
+			vs.getViews()[10],
+			vs.getViews()[15],
+			vs.getViews()[20],
+		};
+#endif
 
 		happly::PLYData p = readPly("testview/newoutside.ply", 1);
 		PointCloud* pc = p.pc;
@@ -192,15 +207,19 @@ public:
 #ifdef SIMPLE
 		Shader visualShader("shaders/SimpleVertexShader.vertexshader", "shaders/SimpleFragmentShader.fragmentshader");
 #else	
+#ifdef MULTIPLE_VIEWS
+		Shader visualShader("shaders/GeometryVertexShader.vertexshader", "shaders/GeometryFragmentShader.fragmentshader");
+#else
 		Shader visualShader("shaders/TestInterpVertexShader.vertexshader", "shaders/TestInterpFragmentShader.fragmentshader");
+		unsigned int ExternalTex2ID = glGetUniformLocation(visualShader.getId(), "externalTexture2");
+		unsigned int ExternalMatrix2ID = glGetUniformLocation(visualShader.getId(), "viewMVP2");
+		unsigned int ExternalViewDir2ID = glGetUniformLocation(visualShader.getId(), "viewDir2");
+#endif
 		unsigned int DepthTexID = glGetUniformLocation(visualShader.getId(), "depthTexture");
 		unsigned int ExternalTexID = glGetUniformLocation(visualShader.getId(), "externalTexture");
-		unsigned int ExternalTex2ID = glGetUniformLocation(visualShader.getId(), "externalTexture2");
 		unsigned int ExternalMatrixID = glGetUniformLocation(visualShader.getId(), "viewMVP");
-		unsigned int ExternalMatrix2ID = glGetUniformLocation(visualShader.getId(), "viewMVP2");
 
 		unsigned int ExternalViewDirID = glGetUniformLocation(visualShader.getId(), "viewDir");
-		unsigned int ExternalViewDir2ID = glGetUniformLocation(visualShader.getId(), "viewDir2");
 #endif
 		unsigned int MatrixID = glGetUniformLocation(visualShader.getId(), "MVP");
 
@@ -251,14 +270,28 @@ public:
 			glm::mat4 ModelMatrix = glm::mat4(1.0);
 			glm::mat4 MVP = ProjectionMatrix * ViewMatrix * ModelMatrix;
 
+#ifdef MULTIPLE_VIEWS
+			glm::mat4 ExternalViewMatrices[5];
+			glm::mat4 ExternalProjectionMatrix = glm::perspective(glm::radians(77.12f), 3 / 4.f, 0.1f, 100.0f);
+			glm::mat4 ExternalMVPs[5];
+
+			glm::vec3 ExternalViewDirs[5];
+
+			for (int i = 0; i < 5; i++) {
+				ExternalViewMatrices[i] = relevantViews[i].getViewMatrix();
+				ExternalMVPs[i] = ExternalProjectionMatrix * ExternalViewMatrices[i] * ModelMatrix;
+				
+				ExternalViewDirs[i] = relevantViews[i].getDirection();
+			}
+#else
 			glm::mat4 ExternalViewMatrix = relevantView.getViewMatrix();
-			glm::mat4 ExternalProjectionMatrix = glm::perspective(glm::radians(67.f), 3/4.f, 0.1f, 100.0f);
+			glm::mat4 ExternalProjectionMatrix = glm::perspective(glm::radians(67.f), 3 / 4.f, 0.1f, 100.0f);
 			glm::mat4 ExternalMVP = ExternalProjectionMatrix * ExternalViewMatrix * ModelMatrix;
 
 			glm::mat4 ExternalViewMatrix2 = vs.getViews()[1].getViewMatrix();
 			glm::mat4 ExternalProjectionMatrix2 = glm::perspective(glm::radians(67.f), 3 / 4.f, 0.1f, 100.0f);
 			glm::mat4 ExternalMVP2 = ExternalProjectionMatrix2 * ExternalViewMatrix2 * ModelMatrix;
-
+#endif
 
 
 
@@ -302,24 +335,36 @@ public:
 			nBuffer.Bind();
 
 			glUniformMatrix4fv(MatrixID, 1, GL_FALSE, &MVP[0][0]);
+
+#ifdef MULTIPLE_VIEWS
+			glUniformMatrix4fv(ExternalMatrixID, 5, GL_FALSE, &ExternalMVPs[0][0][0]);
+			glUniform3fv(ExternalViewDirID, 5, &ExternalViewDirs[0][0]);
+			for (int i = 0; i < 5; i++) {
+				glActiveTexture(textureSlots[i]);
+				glBindTexture(GL_TEXTURE_2D, relevantViews[i].getTexture().getId());
+				int slotRefs[] = { 1,2,3,4,5 };
+				glUniform1iv(ExternalTexID, 5, &slotRefs[0]);
+			}
+#else
 			glUniformMatrix4fv(ExternalMatrixID, 1, GL_FALSE, &ExternalMVP[0][0]);
 			glUniformMatrix4fv(ExternalMatrix2ID, 1, GL_FALSE, &ExternalMVP2[0][0]);
 			glm::vec3 vector(1, 0, 0);
 			glm::vec3 vector2(0.0, 1, 1);
 			glUniform3fv(ExternalViewDirID, 1, &vector[0]);
 			glUniform3fv(ExternalViewDir2ID, 1, &vector2[0]);
-
-			//Put in an active texture or smth 
-			glActiveTexture(GL_TEXTURE0);
-			glBindTexture(GL_TEXTURE_2D, depthTexture);
-			glUniform1i(DepthTexID, 0);
-
 			glActiveTexture(GL_TEXTURE1);
 			glBindTexture(GL_TEXTURE_2D, relevantView.getTexture().getId());
 			glUniform1i(ExternalTexID, 1);
 			glActiveTexture(GL_TEXTURE2);
 			glBindTexture(GL_TEXTURE_2D, vs.getViews()[1].getTexture().getId());
 			glUniform1i(ExternalTex2ID, 2);
+
+#endif
+			//Put in an active texture or smth 
+			glActiveTexture(GL_TEXTURE0);
+			glBindTexture(GL_TEXTURE_2D, depthTexture);
+			glUniform1i(DepthTexID, 0);
+
 			
 
 			//I'm not sure this is how I want to do it.
@@ -329,6 +374,8 @@ public:
 			cBuffer.Unbind();
 			nBuffer.Unbind();
 
+
+			/*  UNBIND TO RENDER CAMERAS
 			glPointSize(72);
 
 
@@ -338,7 +385,7 @@ public:
 			glDrawArrays(GL_POINTS, 0, vsize);
 			v2Buffer.Unbind();
 			c2Buffer.Unbind();
-			n2Buffer.Unbind();
+			n2Buffer.Unbind();*/
 
 			glViewport(width/2, 0, width / 2, height / 2);
 			debugShader.Bind();

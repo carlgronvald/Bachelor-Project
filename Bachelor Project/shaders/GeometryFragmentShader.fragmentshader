@@ -1,0 +1,36 @@
+#version 330 core
+
+in vec2 UVs[5];
+in vec3 vColor;
+in mat2 dUV[5];
+in vec2 vertexxy;
+in float viewParts[5];
+
+uniform sampler2D depthTexture;
+uniform sampler2D externalTexture[5];
+
+out vec4 color;
+
+float near = 0.1;
+float far = 100.0;
+
+float LinearizeDepth(float depth)
+{
+	float z = depth * 2.0 - 1.0; // back to NDC 
+	return (2.0 * near * far) / (far + near - z * (far - near));
+}
+
+void main() {
+	vec2 screenxy = vec2(gl_FragCoord.x / 640, gl_FragCoord.y / 480); //Fragment xy
+
+
+	float d = LinearizeDepth(texture(depthTexture, screenxy).x);
+
+	//color = vec3((screenxy-vertexxy),0);
+
+	//color = vec4(UVs[0][0], UVs[0][1], 1,1);
+	//color = vec4(0,1,0,1);
+	for(int i=0;i<5;i++) {
+		color += texture(externalTexture[i], dUV[i]*(screenxy-vertexxy)+UVs[i])*viewParts[i];
+	}
+}
