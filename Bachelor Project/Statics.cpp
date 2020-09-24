@@ -27,9 +27,11 @@ std::vector<std::pair<std::string, std::vector<float>>> readCsv(std::string file
 	// Make sure the file is open
 	if (!myFile.is_open()) throw std::runtime_error("Could not open file");
 
+	std::cout << "Making strings!" << std::endl;
 	// Helper vars
 	std::string line, colname;
 	float val;
+	std::cout << "Made strings! " << std::endl;
 
 	// Read the column names
 	if (myFile.good())

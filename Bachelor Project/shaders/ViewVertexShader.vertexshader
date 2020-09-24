@@ -18,6 +18,12 @@ uniform vec3 camLoc;
 uniform vec3 camDir;
 
 
+float sigma2 = 1;
+
+float weight(float d2, float x) { //Returns the weighing of a view given squared distance and angle
+	return exp(-d2*x*x/2*1);
+}
+
 void main() {
 	gl_Position = MVP * vec4(vertexPosition_modelspace, 1);
 
@@ -46,7 +52,12 @@ void main() {
 		dUVx = (dxview.xy/dxview.w)-viewPos.xy/viewPos.w;
 		dUVy = (dyview.xy/dyview.w)-viewPos.xy/viewPos.w;
 
-		viewParts[i] = pow(clamp((dot(-viewDir[i], normal))  - pow(  viewPos.x/viewPos.z*viewPos.x/viewPos.z, 64) - pow(viewPos.y/viewPos.z*viewPos.y/viewPos.z, 64)  ,0,1), 2);
+		float d2 = dot(viewLoc[i]-camLoc,viewLoc[i]-camLoc);
+		float x = acos(dot(viewDir[i],camDir));
+
+
+
+		viewParts[i] = clamp(weight(d2,x)  - pow(  viewPos.x/viewPos.z*viewPos.x/viewPos.z, 64) - pow(viewPos.y/viewPos.z*viewPos.y/viewPos.z, 64)  ,0,1);
 		totalViewPart += viewParts[i];
 		UVs[i] = ((viewPos.xy/viewPos.w)+vec2(1,1))/2;
 		dUV[i] = mat2(dUVx,dUVy);

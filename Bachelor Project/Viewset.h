@@ -10,6 +10,8 @@ public:
 	~Viewset();
 
 	std::vector<View> getViews();
+	View getView(int id);
+	int size();
 private:
 	unsigned int viewCount;
 	std::vector<View> views;

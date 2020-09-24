@@ -22,3 +22,10 @@ std::vector<View> Viewset::getViews() {
 	return views;
 }
 
+int Viewset::size() {
+	return viewCount;
+}
+
+View Viewset::getView(int id) {
+	return views[id];
+}

@@ -8,4 +8,6 @@ glm::mat4 getProjectionMatrix();
 glm::vec3 getPosition();
 glm::vec3 getDirection();
 glm::vec2 getAngles();
+float getExtFOV();
+float getPointSize();
 #endif
