@@ -18,6 +18,6 @@ float LinearizeDepth(float depth)
 void main() {
 	float depth = LinearizeDepth(texture(tex,UV).x)/far;
 	//color = vec4(vec3(depth),1.0);
-	color = vec4(texture(tex,UV).xyz,1.0);
+	color = vec4(texture(tex,UV).xyz*texture(tex,UV).w,1.0);
 	//color = vec4(UV.xy,1,1)+texture(tex,UV);
 }

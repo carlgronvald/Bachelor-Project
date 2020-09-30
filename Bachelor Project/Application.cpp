@@ -2,9 +2,9 @@
 #pragma once
 //#define SIMPLE
 #define MULTIPLE_VIEWS					//Whether more than one view should be used
-#define UPDATE_VIEWS_BASED_ON_LOCATION	//Whether views should be changed out based on location
+//#define UPDATE_VIEWS_BASED_ON_LOCATION	//Whether views should be changed out based on location
 //#define NORMALS						//Renders vertices with colors based on normals
-//#define RAPID_LOAD					//Loads a fast, small dataset
+#define RAPID_LOAD					//Loads a fast, small dataset
 
 #define VIEWNUM 5 //Note: This is not fully implemented yet. It is the number of views used.
 
@@ -21,6 +21,7 @@
 #include "Shader.h"
 #include "Buffer.h"
 #include "Viewset.h"
+#include "DepthMap.h"
 
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
@@ -96,13 +97,14 @@ class Application {
 
 	// Updates relevantViews[]
 	void chooseViews(glm::vec3 position, glm::vec3 direction, Viewset viewset) {
-		std::vector<orderedView> views(viewset.size());
+		int subsample = 5;
+		std::vector<orderedView> views(viewset.size()/subsample);
 
-		for (int i = 0; i < viewset.size(); i++) {
+		for (int i = 0; i < viewset.size()/subsample; i++) {
 			views[i] = orderedView();
-			views[i].viewID = i;
-			float d2 = glm::length2(viewset.getView(i).getPosition() - position);
-			float x = std::acos(glm::dot(direction, viewset.getView(i).getDirection()));
+			views[i].viewID = i*subsample;
+			float d2 = glm::length2(viewset.getView(i*subsample).getPosition() - position);
+			float x = std::acos(glm::dot(direction, viewset.getView(i*subsample).getDirection()));
 			views[i].weight = weight(d2, x);
 			//std::cout << views[i].weight << ",";
 		}
@@ -137,7 +139,6 @@ public:
 		if (!glfwInit())
 			return -1;
 
-
 		/* Create a windowed mode window and its OpenGL context */
 		window = glfwCreateWindow(width,height , "Photogrammetric Renderer", NULL, NULL);
 		if (!window)
@@ -157,6 +158,10 @@ public:
 
 		// Init some stuff...
 		init();
+
+		std::cout << "Testing a depth map" << std::endl;
+		DepthMap dm("gerrardview/depth_treated/viewd001.png");
+
 		std::cout << "making testview! " << std::endl;
 #ifdef RAPID_LOAD
 		Viewset vs("testview");
@@ -475,12 +480,12 @@ public:
 			debugShader.Bind();
 
 			glActiveTexture(GL_TEXTURE0);
-			glBindTexture(GL_TEXTURE_2D, vs.getViews()[0].getTexture().getId());
+			glBindTexture(GL_TEXTURE_2D, dm.getTexture().getId());
 			glUniform1i(debugTexId, 0);
 
 			dqBuffer.Bind();
 
-			//glDrawArrays(GL_TRIANGLES, 0, 6);
+			glDrawArrays(GL_TRIANGLES, 0, 6);
 
 			dqBuffer.Unbind();
 

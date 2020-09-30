@@ -34,20 +34,24 @@ void main() {
 	vec2 maxXPos = pos.xy+vec2(1.0,0);
 	vec2 maxYPos = pos.xy+vec2(0,1.0);
 	
+	vec4 xDir = inverse(MVP)*vec4(1,0,0,0);
+	vec4 yDir = inverse(MVP)*vec4(0,1,0,0);
+
 	vec4 maxXdpos,maxYdpos;
 	vec4 dxview,dyview;
 	vec4 viewPos;
 	vec2 dUVx,dUVy;
 
 	float totalViewPart = 0;
-	for(int i=0;i<5;i++) {
 	
-		maxXdpos = inverse(MVP) * vec4(maxXPos*gl_Position.w, gl_Position.z, gl_Position.w);
-		maxYdpos = inverse(MVP) * vec4(maxYPos*gl_Position.w, gl_Position.z, gl_Position.w);
+	for(int i=0;i<5;i++) {
+
+		maxXdpos = vec4(vertexPosition_modelspace+xDir.xyz,1);
+		maxYdpos = vec4(vertexPosition_modelspace+yDir.xyz,1);
 		
 		dxview = viewMVP[i] * maxXdpos;
 		dyview = viewMVP[i] * maxYdpos;
-	
+		
 		viewPos = viewMVP[i] * vec4(vertexPosition_modelspace,1);
 		dUVx = (dxview.xy/dxview.w)-viewPos.xy/viewPos.w;
 		dUVy = (dyview.xy/dyview.w)-viewPos.xy/viewPos.w;
@@ -62,6 +66,7 @@ void main() {
 		UVs[i] = ((viewPos.xy/viewPos.w)+vec2(1,1))/2;
 		dUV[i] = mat2(dUVx,dUVy);
 	}
+
 	for(int i=0;i<5;i++) {
 		viewParts[i] /= totalViewPart;
 	}
@@ -76,3 +81,30 @@ void main() {
 
 	vColor = color;
 }
+
+
+
+/*for(int i=0;i<5;i++) {
+	
+		
+
+	maxXdpos = inverse(MVP) * vec4(maxXPos*gl_Position.w, gl_Position.z, gl_Position.w);
+	maxYdpos = inverse(MVP) * vec4(maxYPos*gl_Position.w, gl_Position.z, gl_Position.w);
+		
+	dxview = viewMVP[i] * maxXdpos;
+	dyview = viewMVP[i] * maxYdpos;
+	
+	viewPos = viewMVP[i] * vec4(vertexPosition_modelspace,1);
+	dUVx = (dxview.xy/dxview.w)-viewPos.xy/viewPos.w;
+	dUVy = (dyview.xy/dyview.w)-viewPos.xy/viewPos.w;
+
+	float d2 = dot(viewLoc[i]-camLoc,viewLoc[i]-camLoc);
+	float x = acos(dot(viewDir[i],camDir));
+
+
+
+	viewParts[i] = clamp(weight(d2,x)  - pow(  viewPos.x/viewPos.z*viewPos.x/viewPos.z, 64) - pow(viewPos.y/viewPos.z*viewPos.y/viewPos.z, 64)  ,0,1);
+	totalViewPart += viewParts[i];
+	UVs[i] = ((viewPos.xy/viewPos.w)+vec2(1,1))/2;
+	dUV[i] = mat2(dUVx,dUVy);
+}*/

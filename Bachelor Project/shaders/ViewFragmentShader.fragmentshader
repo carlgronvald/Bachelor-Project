@@ -28,10 +28,10 @@ void main() {
 
 	//color = vec3((screenxy-vertexxy),0);
 
-	//color = vec4(UVs[0][0], UVs[0][1], 1,1);
 	//color = vec4(0,1,0,1);
 	for(int i=0;i<5;i++) {
 		color += texture(externalTexture[i], dUV[i]*(screenxy-vertexxy)+UVs[i])*viewParts[i];
 	}
+	//color = vec4(dUV[0][0][0], dUV[0][0][1], 1,1);
 	//color = vec4(vColor,1);
 }

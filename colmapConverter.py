@@ -15,11 +15,18 @@ A = cv2.UMat(np.array([[3838.27,0,2808],[0,3837.22,1872],[0,0,1]]))
 image_file_path = "gerrard-hall\\gerrard-hall\\dense\\0\\sparse\\images.txt"
 image_file_output_path = "gerrard-hall\\gerrard-hall\\dense\\0\\view.txt"
 image_folder = "gerrard-hall\\gerrard-hall\\dense\\0\\images2\\"
+depth_folder = "gerrard-hall\\gerrard-hall\\dense\\0\\stereo\\depth_maps2\\"
 
-rename_images = True
+rename_images = False
+rename_depth_maps = True
 
 def renameImage(imageName, ID):
-    os.rename(image_folder + imageName.strip(), image_folder + "view" + str(ID).zfill(3) + ".jpg")
+    if rename_images:
+        os.rename(image_folder + imageName.strip(), image_folder + "view" + str(ID).zfill(3) + ".jpg")
+    if rename_depth_maps:
+        os.rename(depth_folder + imageName.strip()+".photometric.bin", depth_folder+"viewd"+str(ID).zfill(3) + ".photometric.bin")
+
+
 
 with open(image_file_path) as finput:
     with open(image_file_output_path, 'w') as foutput:
@@ -32,8 +39,7 @@ with open(image_file_path) as finput:
         while line:
             
             parts = line.split(" ")
-            if rename_images:
-                renameImage(parts[-1], int(parts[0]))
+            renameImage(parts[-1], int(parts[0]))
             
             newLine = ""
             for part in parts[0:-2]:
