@@ -6,6 +6,7 @@
 
 class Viewset {
 public:
+	Viewset();
 	Viewset(std::string dir);
 	~Viewset();
 

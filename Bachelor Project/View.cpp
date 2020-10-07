@@ -3,8 +3,9 @@
 View::View() {
 
 }
-View::View(int id, glm::quat quaternion, glm::vec3 translation, std::string imgfile) : id(id), position(translation), texture(imgfile) {
+View::View(int id, glm::quat quaternion, glm::vec3 translation, std::string imgfile, std::string depthfile, float minDepth, float maxDepth) : id(id), position(translation), texture(imgfile) {
 	rotation = glm::toMat3(quaternion);
+	depthMap = DepthMap(depthfile.c_str(), minDepth, maxDepth);
 }
 
 Texture View::getTexture() {
@@ -38,4 +39,8 @@ glm::mat4 View::getViewMatrix() {
 	);
 
 	return ViewMatrix;
+}
+
+DepthMap View::getDepthMap() {
+	return depthMap;
 }

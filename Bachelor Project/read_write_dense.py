@@ -165,7 +165,8 @@ def process(filename, sourceDir, targetDir, args):
     depth_map[depth_map > max_depth] = max_depth
     print(str(min_depth) + ", " + str(max_depth))
     
-    writeDepthToFile(depth_map,min_depth,max_depth,targetDir+filename.replace(".photometric.bin", ".png"))
+    #writeDepthToFile(depth_map,min_depth,max_depth,targetDir+filename.replace(".photometric.bin", ".png"))
+    return (min_depth,max_depth)
 
 def main():
     
@@ -177,10 +178,18 @@ def main():
     if args.min_depth_percentile > args.max_depth_percentile:
         raise ValueError("min_depth_percentile should be less than or equal "
                          "to the max_depth_perceintile.")
-
-
+    
+    minDepths = []
+    maxDepths=[]
+    
     for f in os.listdir(sourceDir):
-        process(f, sourceDir, targetDir, args)
+        (min_depth, max_depth) = process(f, sourceDir, targetDir, args)
+        minDepths += [min_depth]
+        maxDepths += [max_depth];
+    
+    with open(targetDir+"depths.txt", 'w+') as f:
+        for i in range(len(minDepths)):
+            f.write(str(i+1) +"\t" +str(minDepths[i]) + "\t" +str(maxDepths[i]) + "\n")
     
 
 #    import pylab as plt

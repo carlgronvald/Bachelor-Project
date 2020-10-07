@@ -1,0 +1,15 @@
+#version 330 core
+
+layout(location=0) in vec3 vertexPosition_modelspace;
+
+out float d;
+
+uniform mat4 MVP;
+
+float dmax = 20f;
+float dmin = 0.1f;
+
+void main() {
+	gl_Position = MVP * vec4(vertexPosition_modelspace, 1);
+	d = clamp((gl_Position.z-dmin)/(dmax-dmin),0,1);
+}

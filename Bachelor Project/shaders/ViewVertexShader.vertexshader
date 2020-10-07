@@ -9,6 +9,8 @@ out vec3 vColor;
 out mat2 dUV[5];
 out vec2 vertexxy;
 out float viewParts[5];
+out float d;
+out float dd;
 
 uniform mat4 MVP;
 uniform mat4 viewMVP[5];
@@ -17,11 +19,18 @@ uniform vec3 viewLoc[5];
 uniform vec3 camLoc;
 uniform vec3 camDir;
 
+uniform sampler2D depthTexture[5];
+uniform float minDepth[5];
+uniform float maxDepth[5];
 
 float sigma2 = 1;
 
 float weight(float d2, float x) { //Returns the weighing of a view given squared distance and angle
 	return exp(-d2*x*x/2*1);
+}
+
+float cameraDepth(vec4 tex, int i) {
+	return dot(tex, vec4(1,256,65536,16777216))/16777216.0 * (maxDepth[i]-minDepth[i]) + minDepth[i];
 }
 
 void main() {
@@ -31,13 +40,16 @@ void main() {
 
 	vec2 pos = (gl_Position.xy/gl_Position.w); //This is the screen position in the [-1,1] square.
 
-	vec2 maxXPos = pos.xy+vec2(1.0,0);
-	vec2 maxYPos = pos.xy+vec2(0,1.0);
-	
-	vec4 xDir = inverse(MVP)*vec4(1,0,0,0);
-	vec4 yDir = inverse(MVP)*vec4(0,1,0,0);
-
+	vec2 maxXPos = pos.xy+vec2(0.01,0);
+	vec2 maxYPos = pos.xy+vec2(0,0.01);
 	vec4 maxXdpos,maxYdpos;
+	
+	//vec4 xDir = inverse(MVP)*vec4(0.01,0,0,0);
+	//vec4 yDir = inverse(MVP)*vec4(0,0.01,0,0);
+
+	maxXdpos = inverse(MVP) * vec4(maxXPos*gl_Position.w, gl_Position.z, gl_Position.w);
+	maxYdpos = inverse(MVP) * vec4(maxYPos*gl_Position.w, gl_Position.z, gl_Position.w);
+
 	vec4 dxview,dyview;
 	vec4 viewPos;
 	vec2 dUVx,dUVy;
@@ -45,13 +57,9 @@ void main() {
 	float totalViewPart = 0;
 	
 	for(int i=0;i<5;i++) {
-
-		maxXdpos = vec4(vertexPosition_modelspace+xDir.xyz,1);
-		maxYdpos = vec4(vertexPosition_modelspace+yDir.xyz,1);
-		
 		dxview = viewMVP[i] * maxXdpos;
 		dyview = viewMVP[i] * maxYdpos;
-		
+	
 		viewPos = viewMVP[i] * vec4(vertexPosition_modelspace,1);
 		dUVx = (dxview.xy/dxview.w)-viewPos.xy/viewPos.w;
 		dUVy = (dyview.xy/dyview.w)-viewPos.xy/viewPos.w;
@@ -59,18 +67,23 @@ void main() {
 		float d2 = dot(viewLoc[i]-camLoc,viewLoc[i]-camLoc);
 		float x = acos(dot(viewDir[i],camDir));
 
+	
+		d = abs(cameraDepth( texture(depthTexture[0], (viewPos.xy/viewPos.z+vec2(1))/2), 0 ) - viewPos.z);
 
-
-		viewParts[i] = clamp(weight(d2,x)  - pow(  viewPos.x/viewPos.z*viewPos.x/viewPos.z, 64) - pow(viewPos.y/viewPos.z*viewPos.y/viewPos.z, 64)  ,0,1);
+		viewParts[i] = clamp(weight(d2,x)  - pow(  viewPos.x/viewPos.z*viewPos.x/viewPos.z, 64) - pow(viewPos.y/viewPos.z*viewPos.y/viewPos.z, 64)  - pow(d*2,4) ,0,1);
 		totalViewPart += viewParts[i];
 		UVs[i] = ((viewPos.xy/viewPos.w)+vec2(1,1))/2;
-		dUV[i] = mat2(dUVx,dUVy);
+		dUV[i] = mat2(dUVx,dUVy)*100;
 	}
 
 	for(int i=0;i<5;i++) {
 		viewParts[i] /= totalViewPart;
 	}
+
+	viewPos = viewMVP[0] * vec4(vertexPosition_modelspace, 1);
 	//TESTING!!!!
+	d = abs(cameraDepth( texture(depthTexture[0], (viewPos.xy/viewPos.z+vec2(1))/2), 0 ))/6;
+	dd = viewPos.z/6;
 	//viewParts[0] = 1;
 	//viewParts[1]=0;
 	//viewParts[2]=0;
@@ -86,25 +99,27 @@ void main() {
 
 /*for(int i=0;i<5;i++) {
 	
-		
-
-	maxXdpos = inverse(MVP) * vec4(maxXPos*gl_Position.w, gl_Position.z, gl_Position.w);
-	maxYdpos = inverse(MVP) * vec4(maxYPos*gl_Position.w, gl_Position.z, gl_Position.w);
-		
-	dxview = viewMVP[i] * maxXdpos;
-	dyview = viewMVP[i] * maxYdpos;
-	
-	viewPos = viewMVP[i] * vec4(vertexPosition_modelspace,1);
-	dUVx = (dxview.xy/dxview.w)-viewPos.xy/viewPos.w;
-	dUVy = (dyview.xy/dyview.w)-viewPos.xy/viewPos.w;
-
-	float d2 = dot(viewLoc[i]-camLoc,viewLoc[i]-camLoc);
-	float x = acos(dot(viewDir[i],camDir));
-
-
-
-	viewParts[i] = clamp(weight(d2,x)  - pow(  viewPos.x/viewPos.z*viewPos.x/viewPos.z, 64) - pow(viewPos.y/viewPos.z*viewPos.y/viewPos.z, 64)  ,0,1);
-	totalViewPart += viewParts[i];
-	UVs[i] = ((viewPos.xy/viewPos.w)+vec2(1,1))/2;
-	dUV[i] = mat2(dUVx,dUVy);
 }*/
+
+/*
+		maxXdpos = vec4(vertexPosition_modelspace+xDir.xyz,1);
+		maxYdpos = vec4(vertexPosition_modelspace+yDir.xyz,1);
+		
+		dxview = viewMVP[i] * maxXdpos;
+		dyview = viewMVP[i] * maxYdpos;
+		gl_Position = MVP * maxYdpos;
+		viewPos = viewMVP[i] * vec4(vertexPosition_modelspace,1);
+		dUVx = (dxview.xy/dxview.w)-viewPos.xy/viewPos.w;
+		dUVy = (dyview.xy/dyview.w)-viewPos.xy/viewPos.w;
+
+		float d2 = dot(viewLoc[i]-camLoc,viewLoc[i]-camLoc);
+		float x = acos(dot(viewDir[i],camDir));
+
+		
+		d = abs(cameraDepth( texture(depthTexture[0], (viewPos.xy/viewPos.z+vec2(1))/2), 0 ) - viewPos.z);
+
+		viewParts[i] = clamp(weight(d2,x)  - pow(  viewPos.x/viewPos.z*viewPos.x/viewPos.z, 64) - pow(viewPos.y/viewPos.z*viewPos.y/viewPos.z, 64)  - pow(d*3,4) ,0,1);
+		totalViewPart += viewParts[i];
+		UVs[i] = ((viewPos.xy/viewPos.w)+vec2(1,1))/2;
+		dUV[i] = mat2(dUVx,dUVy);
+		*/

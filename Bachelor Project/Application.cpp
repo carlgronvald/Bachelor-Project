@@ -2,9 +2,9 @@
 #pragma once
 //#define SIMPLE
 #define MULTIPLE_VIEWS					//Whether more than one view should be used
-//#define UPDATE_VIEWS_BASED_ON_LOCATION	//Whether views should be changed out based on location
+#define UPDATE_VIEWS_BASED_ON_LOCATION	//Whether views should be changed out based on location
 //#define NORMALS						//Renders vertices with colors based on normals
-#define RAPID_LOAD					//Loads a fast, small dataset
+//#define RAPID_LOAD					//Loads a fast, small dataset
 
 #define VIEWNUM 5 //Note: This is not fully implemented yet. It is the number of views used.
 
@@ -58,7 +58,37 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 }
 class Application {
 
-	void init() {
+
+
+	int init() {
+		curPic = 0; //TODO: FIGURE OUT WHAT PICUTRE WE'RE AT TO AVOID OVERRIDING
+#ifdef MULTIPLE_VIEWS
+		multipleViews = true;
+#endif
+		stbi_set_flip_vertically_on_load(true);
+		stbi_flip_vertically_on_write(true);
+
+		/* Initialize the library */
+		if (!glfwInit())
+			return -1;
+
+		/* Create a windowed mode window and its OpenGL context */
+		window = glfwCreateWindow(width, height, "Photogrammetric Renderer", NULL, NULL);
+		if (!window)
+		{
+			glfwTerminate();
+			return -1;
+		}
+
+		/* Make the window's context current */
+		glfwMakeContextCurrent(window);
+
+		glewExperimental = true;
+		/* Now we can init GLEW, since we have a valid context */
+		if (glewInit() != GLEW_OK) {
+			std::cout << "Error" << std::endl;
+		}
+
 		glPointSize(8);
 		glClearColor(1,1,1, 1); //105/255.f, 189/255.f, 216/255.f
 		glDepthRange(0.1, 100);
@@ -66,6 +96,8 @@ class Application {
 		glDepthFunc(GL_LESS);
 
 		glfwSetKeyCallback(window, key_callback);
+
+		return 0;
 	}
 
 
@@ -97,7 +129,7 @@ class Application {
 
 	// Updates relevantViews[]
 	void chooseViews(glm::vec3 position, glm::vec3 direction, Viewset viewset) {
-		int subsample = 5;
+		int subsample = 1;
 		std::vector<orderedView> views(viewset.size()/subsample);
 
 		for (int i = 0; i < viewset.size()/subsample; i++) {
@@ -117,57 +149,113 @@ class Application {
 		}
 	}
 
+	//Generate synthetic depth maps TODO
+	void synthesizeDepth() {
+
+		int vWidth = vs.getView(0).getDepthMap().getTexture().getWidth();
+		int vHeight = vs.getView(0).getDepthMap().getTexture().getHeight();
+
+
+		unsigned int synth_fbo;
+		glGenFramebuffers(1, &synth_fbo);
+		glBindFramebuffer(GL_FRAMEBUFFER, synth_fbo);
+		/*if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
+			std::cout << "Framebuffer creation failed!!" << std::endl;
+			return;
+		}*/
+
+		unsigned int synth_rbo; //We need depth & stencil testing, so we need to make a render buffer for it.
+		glGenRenderbuffers(1, &synth_rbo);
+		glBindRenderbuffer(GL_RENDERBUFFER, synth_rbo);
+		glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, vWidth, vHeight);
+		glBindRenderbuffer(GL_RENDERBUFFER, 0);
+
+		glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, synth_rbo);
+
+		if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
+			std::cout << "ERROR::FRAMEBUFFER:: Framebuffer is not complete!" << std::endl;
+
+		glm::mat4 projectionMatrix = glm::perspective(glm::radians(getExtFOV()), 5616 / 3744.f, 0.1f, 100.0f);
+		glm::mat4 MVP;
+
+		glViewport(0, 0, vWidth, vHeight); //Render on the camera
+
+		Shader synthShader("shaders/DepthSynthesizer.vertexshader", "shaders/DepthSynthesizer.fragmentshader");
+		unsigned int matrixId = synthShader.GetUniformLocation("MVP");
+		synthShader.Bind();
+
+		vBuffer.Bind();
+		cBuffer.Bind();
+		nBuffer.Bind();
+		for (int i = 0; i < vs.getViews().size(); i++) {
+
+			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+			glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, vs.getView(i).getDepthMap().getTexture().getId(), 0);
+			MVP = projectionMatrix * vs.getView(i).getViewMatrix() * glm::mat4(1);
+
+			vs.getView(i).getDepthMap().setMaxDepth(20.f);
+			vs.getView(i).getDepthMap().setMinDepth(0.1f);
+			glUniformMatrix4fv(matrixId, 1, GL_FALSE, &MVP[0][0]);
+
+			glDrawArrays(GL_POINTS, 0, vBuffer.GetLength());
+
+		}
+		vBuffer.Unbind();
+		cBuffer.Unbind();
+		nBuffer.Unbind();
+
+		glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+		glDeleteFramebuffers(1, &synth_fbo);
+		glDeleteRenderbuffers(1, &synth_rbo);
+	}
+
 public:
 	bool multipleViews;
 	int width = 1000, height = 1000;
 	unsigned int textureSlots[5] = { GL_TEXTURE1, GL_TEXTURE2, GL_TEXTURE3, GL_TEXTURE4, GL_TEXTURE5 };
-
+	unsigned int depthTextureSlots[5] = { GL_TEXTURE6, GL_TEXTURE7, GL_TEXTURE8, GL_TEXTURE9, GL_TEXTURE10 };
 	View relevantViews[VIEWNUM];
 	GLFWwindow* window;
+	Viewset vs;
+	//Buffers for vertices, normals, and colors
+	Buffer vBuffer, nBuffer, cBuffer;
 
+	Application() {
+
+	}
 
 	int main(void)
 	{
-		curPic = 0; //TODO: FIGURE OUT WHAT PICUTRE WE'RE AT TO AVOID OVERRIDING
-#ifdef MULTIPLE_VIEWS
-		multipleViews = true;
-#endif
-		stbi_set_flip_vertically_on_load(true);
-		stbi_flip_vertically_on_write(true);
-
-		/* Initialize the library */
-		if (!glfwInit())
-			return -1;
-
-		/* Create a windowed mode window and its OpenGL context */
-		window = glfwCreateWindow(width,height , "Photogrammetric Renderer", NULL, NULL);
-		if (!window)
-		{
-			glfwTerminate();
-			return -1;
-		}
-
-		/* Make the window's context current */
-		glfwMakeContextCurrent(window);
-
-		glewExperimental = true;
-		/* Now we can init GLEW, since we have a valid context */
-		if (glewInit() != GLEW_OK) {
-			std::cout << "Error" << std::endl;
-		}
-
 		// Init some stuff...
-		init();
+		int status = init();
 
-		std::cout << "Testing a depth map" << std::endl;
-		DepthMap dm("gerrardview/depth_treated/viewd001.png");
+		if (status != 0)
+			return status;
+
+		int work_grp_count[3];
+
+		glGetIntegeri_v(GL_MAX_COMPUTE_WORK_GROUP_COUNT, 0, &work_grp_count[0]);
+		glGetIntegeri_v(GL_MAX_COMPUTE_WORK_GROUP_COUNT, 1, &work_grp_count[1]);
+		glGetIntegeri_v(GL_MAX_COMPUTE_WORK_GROUP_COUNT, 2, &work_grp_count[2]);
+
+		std::cout << "Work group counts x: " << work_grp_count[0] << ", y: " << work_grp_count[1] << ", z: " << work_grp_count[2] << std::endl;
+
+		int work_grp_invocations;
+		glGetIntegerv(GL_MAX_COMPUTE_WORK_GROUP_INVOCATIONS, &work_grp_invocations);
+		std::cout << "Work group invocations: " << work_grp_invocations << std::endl;
+
+		Shader computeShader("shaders/compute/DepthMapComputer.computeshader");
+		Texture computeTexture(512, 512, GL_RGBA32F, GL_RGBA, nullptr);
+		computeShader.compute(512, 512, 1, computeTexture);
+
 
 		std::cout << "making testview! " << std::endl;
 #ifdef RAPID_LOAD
 		Viewset vs("testview");
 		happly::PLYData p = readPly("testview/outside.ply", 1);
 #else
-		Viewset vs("gerrardview");
+		vs = Viewset("gerrardview");
 		happly::PLYData p = readPly("gerrardview/object.ply", 1);
 #endif
 		std::cout << vs.getViews()[0].getPosition()[0] << ", " << vs.getViews()[0].getPosition()[1] << "," << vs.getViews()[0].getPosition()[2] << std::endl;
@@ -216,14 +304,14 @@ public:
 		
 		// Let's make a vertex buffer!
 		
-		Buffer vBuffer(sizeof(float)*3, pc->getLength(), pc->vertexPositions, 0);
+		vBuffer = Buffer(sizeof(float)*3, pc->getLength(), pc->vertexPositions, 0);
 		vBuffer.Bind();
 		
 		// And a color buffer!
-		Buffer cBuffer(sizeof(float)*3, pc->getLength(), pc->realVertexColors, 1);
+		cBuffer = Buffer(sizeof(float)*3, pc->getLength(), pc->realVertexColors, 1);
 		cBuffer.Bind();
 
-		Buffer nBuffer(sizeof(float) * 3, pc->getLength(), pc->vertexNormals, 2);
+		nBuffer = Buffer(sizeof(float) * 3, pc->getLength(), pc->vertexNormals, 2);
 		nBuffer.Bind();
 
 
@@ -282,6 +370,9 @@ public:
 		unsigned int ExternalViewDir2ID = glGetUniformLocation(visualShader.getId(), "viewDir2");
 #endif
 		unsigned int DepthTexID = glGetUniformLocation(visualShader.getId(), "depthTexture");
+		unsigned int MinDepthID = glGetUniformLocation(visualShader.getId(), "minDepth");
+		unsigned int MaxDepthID = glGetUniformLocation(visualShader.getId(), "maxDepth");
+
 		unsigned int ExternalTexID = glGetUniformLocation(visualShader.getId(), "externalTexture");
 		unsigned int ExternalMatrixID = glGetUniformLocation(visualShader.getId(), "viewMVP");
 
@@ -298,6 +389,9 @@ public:
 		
 		unsigned int depthMatrixId = glGetUniformLocation(depthShader.getId(), "MVP");
 
+
+		synthesizeDepth();
+		std::cout << "Generated synthetic depth maps!" << std::endl;
 
 		std::cout << "Time to render" << std::endl;
 		/* Loop until the user closes the window */
@@ -428,12 +522,26 @@ public:
 
 			glUniform3fv(camDirID, 1, &Direction[0]);
 			glUniform3fv(camLocID, 1, &Position[0]);
+			float minDepths[5];
+			float maxDepths[5];
 			for (int i = 0; i < 5; i++) {
 				glActiveTexture(textureSlots[i]);
 				glBindTexture(GL_TEXTURE_2D, relevantViews[i].getTexture().getId());
-				int slotRefs[] = { 1,2,3,4,5 };
-				glUniform1iv(ExternalTexID, 5, &slotRefs[0]);
+				
+
+				glActiveTexture(depthTextureSlots[i]);
+				glBindTexture(GL_TEXTURE_2D, relevantViews[i].getDepthMap().getTexture().getId());
+				minDepths[i] = relevantViews[i].getDepthMap().getMinDepth();
+				maxDepths[i] = relevantViews[i].getDepthMap().getMaxDepth();
 			}
+
+			int slotRefs[] = { 1,2,3,4,5 };
+			glUniform1iv(ExternalTexID, 5, &slotRefs[0]);
+
+			int depthSlotRefs[] = { 6,7,8,9,10 };
+			glUniform1iv(DepthTexID, 5, &depthSlotRefs[0]);
+			glUniform1fv(MinDepthID, 5, &minDepths[0]);
+			glUniform1fv(MaxDepthID, 5, &maxDepths[0]);
 #else
 			glUniformMatrix4fv(ExternalMatrixID, 1, GL_FALSE, &ExternalMVP[0][0]);
 			glUniformMatrix4fv(ExternalMatrix2ID, 1, GL_FALSE, &ExternalMVP2[0][0]);
@@ -449,10 +557,10 @@ public:
 			glUniform1i(ExternalTex2ID, 2);
 
 #endif
-			//Put in an active texture or smth 
-			glActiveTexture(GL_TEXTURE0);
-			glBindTexture(GL_TEXTURE_2D, depthTexture);
-			glUniform1i(DepthTexID, 0);
+			// This was used to input the depth as seen from the camera
+			//glActiveTexture(GL_TEXTURE0);
+			//glBindTexture(GL_TEXTURE_2D, depthTexture);
+			//glUniform1i(DepthTexID, 0);
 
 			
 
@@ -480,7 +588,7 @@ public:
 			debugShader.Bind();
 
 			glActiveTexture(GL_TEXTURE0);
-			glBindTexture(GL_TEXTURE_2D, dm.getTexture().getId());
+			glBindTexture(GL_TEXTURE_2D, relevantViews[0].getDepthMap().getTexture().getId());
 			glUniform1i(debugTexId, 0);
 
 			dqBuffer.Bind();

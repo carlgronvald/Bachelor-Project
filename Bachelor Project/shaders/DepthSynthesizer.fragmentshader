@@ -1,0 +1,15 @@
+#version 330 core
+
+in float d;
+
+out vec4 color;
+
+void main() {
+	//color = vec4(mod(d,256)/255f, mod(d/uint(256),256)/255f, mod(d/uint(65536),256)/255f,mod(d/uint(16777216),256)/255f);
+	//color = vec4(0,0,length(color),1);
+	//color = vec4(0,0,0,1);
+	uint dint = uint(d*4294967295U);
+	uvec4 col = uvec4(mod(dint,256), mod(dint/uint(256),256), mod(dint/uint(65536),256), dint/uint(16777216));
+	//col = uvec4(105U, 213U, 100U, 40U);
+	color = vec4(col[0]/255f, col[1]/255f, col[2]/255f, col[3]/255f);//vec4(0.5,0.5,0.5,0);
+}

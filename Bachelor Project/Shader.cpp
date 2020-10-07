@@ -38,13 +38,58 @@ unsigned int CreateShader(const std::string& vertexShader, const std::string &fr
 	return program;
 }
 
+unsigned int CreateShader(const std::string& computeShader) {
+	unsigned int program = glCreateProgram();
+	unsigned int cs = CompileShader(computeShader, GL_COMPUTE_SHADER);
+
+	glAttachShader(program, cs);
+	glLinkProgram(program);
+
+	glValidateProgram(program);
+	glDeleteShader(cs);
+
+	return program;
+}
+
 Shader::Shader(const char* vertexShaderFile, const char* fragmentShaderFile)
 {
 	this->id = CreateShader(readFile(vertexShaderFile), readFile(fragmentShaderFile));
 	std::cout << "Compiled shaders " << vertexShaderFile << " and " << fragmentShaderFile << "!" << std::endl;
+	computeShader = false;
+}
+
+Shader::Shader(const char* computeShaderFile) {
+	
+	this -> id = CreateShader(readFile(computeShaderFile));
+	std::cout << "Compiled compute shader " << computeShaderFile << "!" << std::endl;
+	computeShader = true;
 }
 
 
 Shader::~Shader()
 {
+}
+
+bool Shader::isComputeShader() {
+	return computeShader;
+}
+
+unsigned int Shader::getId() {
+	return id;
+}
+
+void Shader::Bind() {
+	glUseProgram(id);
+}
+
+void Shader::compute(int w, int h, int d, Texture texture) {
+	if (!computeShader)
+		return;
+	glBindImageTexture(0, texture.getId(), 0, GL_FALSE, 0, GL_WRITE_ONLY, texture.getFormat());
+	Bind();
+	glDispatchCompute(w, h, d);
+}
+
+unsigned int Shader::GetUniformLocation(const char* location) {
+	return glGetUniformLocation(id, location);
 }
