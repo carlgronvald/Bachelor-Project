@@ -18,6 +18,7 @@ public:
 	float getMaxDepth();
 	void setMaxDepth(float depth);
 	void setMinDepth(float depth);
+	void setTexture(const Texture& texture);
 
 private:
 	Texture texture;

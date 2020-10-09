@@ -56,6 +56,7 @@ Shader::Shader(const char* vertexShaderFile, const char* fragmentShaderFile)
 	this->id = CreateShader(readFile(vertexShaderFile), readFile(fragmentShaderFile));
 	std::cout << "Compiled shaders " << vertexShaderFile << " and " << fragmentShaderFile << "!" << std::endl;
 	computeShader = false;
+	uniforms = std::map<std::string, unsigned int>();
 }
 
 Shader::Shader(const char* computeShaderFile) {
@@ -63,6 +64,7 @@ Shader::Shader(const char* computeShaderFile) {
 	this -> id = CreateShader(readFile(computeShaderFile));
 	std::cout << "Compiled compute shader " << computeShaderFile << "!" << std::endl;
 	computeShader = true;
+	uniforms = std::map<std::string, unsigned int>();
 }
 
 
@@ -90,6 +92,10 @@ void Shader::compute(int w, int h, int d, Texture texture) {
 	glDispatchCompute(w, h, d);
 }
 
-unsigned int Shader::GetUniformLocation(const char* location) {
-	return glGetUniformLocation(id, location);
+unsigned int Shader::GetUniformLocation(std::string location) {
+	return uniforms[location];
+}
+
+void Shader::CreateUniformLocation(std::string location) {
+	uniforms.emplace(location, glGetUniformLocation(id, location.c_str()));
 }

@@ -90,7 +90,7 @@ class Application {
 		}
 
 		glPointSize(8);
-		glClearColor(1,1,1, 1); //105/255.f, 189/255.f, 216/255.f
+		glClearColor(105/255.f,189/255.f,216/255.f, 1); //105/255.f, 189/255.f, 216/255.f
 		glDepthRange(0.1, 100);
 		glEnable(GL_DEPTH_TEST);
 		glDepthFunc(GL_LESS);
@@ -149,11 +149,12 @@ class Application {
 		}
 	}
 
-	//Generate synthetic depth maps TODO
+	//Generate synthetic depth maps using opengl depth texturesTODO
 	void synthesizeDepth() {
-
+		glPointSize(5);
 		int vWidth = vs.getView(0).getDepthMap().getTexture().getWidth();
 		int vHeight = vs.getView(0).getDepthMap().getTexture().getHeight();
+
 
 
 		unsigned int synth_fbo;
@@ -162,6 +163,69 @@ class Application {
 		/*if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
 			std::cout << "Framebuffer creation failed!!" << std::endl;
 			return;
+		}*/
+
+		// The depth buffer
+		unsigned int depthRenderbuffer;
+		glGenRenderbuffers(1, &depthRenderbuffer);
+		glBindRenderbuffer(GL_RENDERBUFFER, depthRenderbuffer);
+		glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT, vWidth, vHeight);
+		glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, depthRenderbuffer);
+
+		glDrawBuffer(GL_NONE);
+
+		if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
+			std::cout << "ERROR::FRAMEBUFFER:: Framebuffer is not complete!" << std::endl;
+
+		glm::mat4 projectionMatrix = glm::perspective(glm::radians(getExtFOV()), float(vWidth)/vHeight, 0.1f, 100.0f);
+		glm::mat4 MVP;
+
+		glViewport(0, 0, vWidth, vHeight); //Render on the camera
+
+		Shader synthShader("shaders/DepthVertexShader.vertexshader", "shaders/DepthFragmentShader.fragmentshader");
+		unsigned int matrixId = synthShader.GetUniformLocation("MVP");
+		synthShader.Bind();
+
+		vBuffer.Bind();
+		cBuffer.Bind();
+		nBuffer.Bind();
+		for (int i = 0; i < vs.getViews().size(); i++) {
+			vs.getView(i).getDepthMap().setTexture(Texture(vWidth, vHeight, GL_DEPTH_COMPONENT16, GL_DEPTH_COMPONENT, NULL));
+			glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, vs.getView(i).getDepthMap().getTexture().getId(), 0);
+			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+			MVP = projectionMatrix * vs.getView(i).getViewMatrix() * glm::mat4(1);
+
+			vs.getView(i).getDepthMap().setMaxDepth(20.f);
+			vs.getView(i).getDepthMap().setMinDepth(0.1f);
+			glUniformMatrix4fv(matrixId, 1, GL_FALSE, &MVP[0][0]);
+
+			glDrawArrays(GL_POINTS, 0, vBuffer.GetLength());
+
+		}
+		vBuffer.Unbind();
+		cBuffer.Unbind();
+		nBuffer.Unbind();
+
+		glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+		glDeleteFramebuffers(1, &synth_fbo);
+		glDeleteRenderbuffers(1, &depthRenderbuffer);
+	}
+
+
+	//Generate synthetic depth maps  TODO 
+	void synthesizeDepth2() {
+		glPointSize(5);
+		int vWidth = vs.getView(0).getDepthMap().getTexture().getWidth();
+		int vHeight = vs.getView(0).getDepthMap().getTexture().getHeight();
+
+
+		unsigned int synth_fbo;
+		glGenFramebuffers(1, &synth_fbo);
+		glBindFramebuffer(GL_FRAMEBUFFER, synth_fbo);
+		/*if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
+		std::cout << "Framebuffer creation failed!!" << std::endl;
+		return;
 		}*/
 
 		unsigned int synth_rbo; //We need depth & stencil testing, so we need to make a render buffer for it.
@@ -175,7 +239,7 @@ class Application {
 		if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
 			std::cout << "ERROR::FRAMEBUFFER:: Framebuffer is not complete!" << std::endl;
 
-		glm::mat4 projectionMatrix = glm::perspective(glm::radians(getExtFOV()), 5616 / 3744.f, 0.1f, 100.0f);
+		glm::mat4 projectionMatrix = glm::perspective(glm::radians(getExtFOV()), float(vWidth) / vHeight, 0.1f, 100.0f);
 		glm::mat4 MVP;
 
 		glViewport(0, 0, vWidth, vHeight); //Render on the camera
@@ -189,8 +253,8 @@ class Application {
 		nBuffer.Bind();
 		for (int i = 0; i < vs.getViews().size(); i++) {
 
-			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 			glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, vs.getView(i).getDepthMap().getTexture().getId(), 0);
+			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 			MVP = projectionMatrix * vs.getView(i).getViewMatrix() * glm::mat4(1);
 
 			vs.getView(i).getDepthMap().setMaxDepth(20.f);
@@ -210,6 +274,65 @@ class Application {
 		glDeleteRenderbuffers(1, &synth_rbo);
 	}
 
+
+	//Generate synthetic depth maps using opengl depth texturesTODO
+	void synthesizeRelevantDepths() {
+		glPointSize(25);
+		int vWidth = vs.getView(0).getTexture().getWidth();
+		int vHeight = vs.getView(0).getTexture().getHeight();
+
+		unsigned int synth_fbo;
+		glGenFramebuffers(1, &synth_fbo);
+		glBindFramebuffer(GL_FRAMEBUFFER, synth_fbo);
+		/*if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
+		std::cout << "Framebuffer creation failed!!" << std::endl;
+		return;
+		}*/
+
+		// The depth buffer
+		unsigned int depthRenderbuffer;
+		glGenRenderbuffers(1, &depthRenderbuffer);
+		glBindRenderbuffer(GL_RENDERBUFFER, depthRenderbuffer);
+		glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT, vWidth, vHeight);
+		glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, depthRenderbuffer);
+
+		glDrawBuffer(GL_NONE);
+
+		if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
+			std::cout << "ERROR::FRAMEBUFFER:: Framebuffer is not complete!" << std::endl;
+
+		glm::mat4 projectionMatrix = glm::perspective(glm::radians(getExtFOV()), float(vWidth) / vHeight, 0.1f, 100.0f);
+		glm::mat4 MVP;
+
+		glViewport(0, 0, vWidth, vHeight); //Render on the camera
+
+		Shader synthShader("shaders/DepthVertexShader.vertexshader", "shaders/DepthFragmentShader.fragmentshader");
+		unsigned int matrixId = synthShader.GetUniformLocation("MVP");
+		synthShader.Bind();
+
+		vBuffer.Bind();
+		cBuffer.Bind();
+		nBuffer.Bind();
+		for (int i = 0; i < VIEWNUM; i++) {
+			relevantDepthTextures[i] = Texture(vWidth, vHeight, GL_DEPTH_COMPONENT16, GL_DEPTH_COMPONENT, NULL);
+			glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, relevantDepthTextures[i].getId(), 0);
+			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+			MVP = projectionMatrix * relevantViews[i].getViewMatrix() * glm::mat4(1);
+
+			glUniformMatrix4fv(matrixId, 1, GL_FALSE, &MVP[0][0]);
+
+			glDrawArrays(GL_POINTS, 0, vBuffer.GetLength());
+		}
+		vBuffer.Unbind();
+		cBuffer.Unbind();
+		nBuffer.Unbind();
+
+		glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+		glDeleteFramebuffers(1, &synth_fbo);
+		glDeleteRenderbuffers(1, &depthRenderbuffer);
+	}
+
 public:
 	bool multipleViews;
 	int width = 1000, height = 1000;
@@ -220,6 +343,8 @@ public:
 	Viewset vs;
 	//Buffers for vertices, normals, and colors
 	Buffer vBuffer, nBuffer, cBuffer;
+	bool depthsSynthesized = false;
+	Texture relevantDepthTextures[VIEWNUM];
 
 	Application() {
 
@@ -362,26 +487,32 @@ public:
 #endif
 #else	
 #ifdef MULTIPLE_VIEWS
-		Shader visualShader("shaders/ViewVertexShader.vertexshader", "shaders/ViewFragmentShader.fragmentshader");
+		Shader visualShader("shaders/ViewDepthlessVertexShader.vertexshader", "shaders/ViewFragmentShader.fragmentshader");
+		Shader visualDepthShader("shaders/ViewVertexShader.vertexShader", "shaders/ViewFragmentShader.fragmentshader");
 #else
 		Shader visualShader("shaders/TestInterpVertexShader.vertexshader", "shaders/TestInterpFragmentShader.fragmentshader");
 		unsigned int ExternalTex2ID = glGetUniformLocation(visualShader.getId(), "externalTexture2");
 		unsigned int ExternalMatrix2ID = glGetUniformLocation(visualShader.getId(), "viewMVP2");
 		unsigned int ExternalViewDir2ID = glGetUniformLocation(visualShader.getId(), "viewDir2");
 #endif
-		unsigned int DepthTexID = glGetUniformLocation(visualShader.getId(), "depthTexture");
-		unsigned int MinDepthID = glGetUniformLocation(visualShader.getId(), "minDepth");
-		unsigned int MaxDepthID = glGetUniformLocation(visualShader.getId(), "maxDepth");
+		visualDepthShader.CreateUniformLocation("depthTexture");
+		visualDepthShader.CreateUniformLocation("minDepth");
+		visualDepthShader.CreateUniformLocation("maxDepth");
 
-		unsigned int ExternalTexID = glGetUniformLocation(visualShader.getId(), "externalTexture");
-		unsigned int ExternalMatrixID = glGetUniformLocation(visualShader.getId(), "viewMVP");
+		Shader** shaders = new Shader*[2]{ &visualShader, &visualDepthShader };
 
-		unsigned int ExternalViewDirID = glGetUniformLocation(visualShader.getId(), "viewDir");
-		unsigned int ExternalViewLocID = glGetUniformLocation(visualShader.getId(), "viewLoc");
-		unsigned int camDirID = glGetUniformLocation(visualShader.getId(), "camDir");
-		unsigned int camLocID = glGetUniformLocation(visualShader.getId(), "camLoc");
+		for (int i = 0; i < 2; i++) {
+			shaders[i]->CreateUniformLocation("externalTexture");
+			shaders[i]->CreateUniformLocation("viewMVP");
+
+			shaders[i]->CreateUniformLocation("viewDir");
+			shaders[i]->CreateUniformLocation("viewLoc");
+			shaders[i]->CreateUniformLocation("camDir");
+			shaders[i]->CreateUniformLocation("camLoc");
+			shaders[i]->CreateUniformLocation("MVP");
+		}
+		delete[] shaders;
 #endif
-		unsigned int MatrixID = glGetUniformLocation(visualShader.getId(), "MVP");
 
 		visualShader.Bind();
 
@@ -390,8 +521,12 @@ public:
 		unsigned int depthMatrixId = glGetUniformLocation(depthShader.getId(), "MVP");
 
 
-		synthesizeDepth();
-		std::cout << "Generated synthetic depth maps!" << std::endl;
+		//synthesizeDepth();
+		//std::cout << "Generated synthetic depth maps!" << std::endl;
+
+
+		Shader* activeShader;
+		activeShader = &visualShader;
 
 		std::cout << "Time to render" << std::endl;
 		/* Loop until the user closes the window */
@@ -453,7 +588,10 @@ public:
 #ifdef UPDATE_VIEWS_BASED_ON_LOCATION
 			chooseViews(Position, Direction, vs);
 #endif
-
+			if (glfwGetKey(window, GLFW_KEY_G) == GLFW_PRESS) {
+				synthesizeRelevantDepths();
+				depthsSynthesized = true;
+			}
 
 			for (int i = 0; i < 5; i++) {
 				ExternalViewMatrices[i] = relevantViews[i].getViewMatrix();
@@ -473,6 +611,7 @@ public:
 #endif
 
 
+/*			Renders depth unto framebuffer texture.
 
 			std::stringstream ss;
 			ss << "(" << Position[0] << "," << Position[1] << "," << Position[2] << ") (" << Angles[0] << "," << Angles[1] << ")";
@@ -495,7 +634,12 @@ public:
 
 			vBuffer.Unbind();
 			cBuffer.Unbind();
-			nBuffer.Unbind();
+			nBuffer.Unbind();*/
+
+			if (depthsSynthesized)
+				activeShader = &visualDepthShader;
+			else
+				activeShader = &visualShader;
 
 
 			//Time to render to screen again
@@ -507,21 +651,21 @@ public:
 			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 			//Put the visual shader back
-			visualShader.Bind();
+			activeShader->Bind();
 
 			vBuffer.Bind();
 			cBuffer.Bind();
 			nBuffer.Bind();
 
-			glUniformMatrix4fv(MatrixID, 1, GL_FALSE, &MVP[0][0]);
+			glUniformMatrix4fv(activeShader->GetUniformLocation("MVP"), 1, GL_FALSE, &MVP[0][0]);
 
 #ifdef MULTIPLE_VIEWS
-			glUniformMatrix4fv(ExternalMatrixID, 5, GL_FALSE, &ExternalMVPs[0][0][0]);
-			glUniform3fv(ExternalViewDirID, 5, &ExternalViewDirs[0][0]);
-			glUniform3fv(ExternalViewLocID, 5, &ExternalViewLocs[0][0]);
+			glUniformMatrix4fv(activeShader->GetUniformLocation("viewMVP"), 5, GL_FALSE, &ExternalMVPs[0][0][0]);
+			glUniform3fv(activeShader->GetUniformLocation("viewDir"), 5, &ExternalViewDirs[0][0]);
+			glUniform3fv(activeShader->GetUniformLocation("viewLoc"), 5, &ExternalViewLocs[0][0]);
 
-			glUniform3fv(camDirID, 1, &Direction[0]);
-			glUniform3fv(camLocID, 1, &Position[0]);
+			glUniform3fv(activeShader->GetUniformLocation("camDir"), 1, &Direction[0]);
+			glUniform3fv(activeShader->GetUniformLocation("camLoc"), 1, &Position[0]);
 			float minDepths[5];
 			float maxDepths[5];
 			for (int i = 0; i < 5; i++) {
@@ -530,18 +674,21 @@ public:
 				
 
 				glActiveTexture(depthTextureSlots[i]);
-				glBindTexture(GL_TEXTURE_2D, relevantViews[i].getDepthMap().getTexture().getId());
+				glBindTexture(GL_TEXTURE_2D, relevantDepthTextures[i].getId());
+				//glBindTexture(GL_TEXTURE_2D, relevantViews[i].getDepthMap().getTexture().getId());
 				minDepths[i] = relevantViews[i].getDepthMap().getMinDepth();
 				maxDepths[i] = relevantViews[i].getDepthMap().getMaxDepth();
 			}
 
 			int slotRefs[] = { 1,2,3,4,5 };
-			glUniform1iv(ExternalTexID, 5, &slotRefs[0]);
+			glUniform1iv(activeShader->GetUniformLocation("externalTexture"), 5, &slotRefs[0]);
 
-			int depthSlotRefs[] = { 6,7,8,9,10 };
-			glUniform1iv(DepthTexID, 5, &depthSlotRefs[0]);
-			glUniform1fv(MinDepthID, 5, &minDepths[0]);
-			glUniform1fv(MaxDepthID, 5, &maxDepths[0]);
+			if (depthsSynthesized) {
+				int depthSlotRefs[] = { 6,7,8,9,10 };
+				glUniform1iv(activeShader->GetUniformLocation("depthTexture"), 5, &depthSlotRefs[0]);
+				glUniform1fv(activeShader->GetUniformLocation("minDepth"), 5, &minDepths[0]);
+				glUniform1fv(activeShader->GetUniformLocation("maxDepth"), 5, &maxDepths[0]);
+			}
 #else
 			glUniformMatrix4fv(ExternalMatrixID, 1, GL_FALSE, &ExternalMVP[0][0]);
 			glUniformMatrix4fv(ExternalMatrix2ID, 1, GL_FALSE, &ExternalMVP2[0][0]);
@@ -585,17 +732,20 @@ public:
 			n2Buffer.Unbind();
 
 			glViewport(width/2, 0, width / 2, height / 2);
-			debugShader.Bind();
 
-			glActiveTexture(GL_TEXTURE0);
-			glBindTexture(GL_TEXTURE_2D, relevantViews[0].getDepthMap().getTexture().getId());
-			glUniform1i(debugTexId, 0);
+			if (depthsSynthesized) {
+				debugShader.Bind();
 
-			dqBuffer.Bind();
+				glActiveTexture(GL_TEXTURE0);
+				glBindTexture(GL_TEXTURE_2D, relevantDepthTextures[0].getId());
+				glUniform1i(debugTexId, 0);
 
-			glDrawArrays(GL_TRIANGLES, 0, 6);
+				dqBuffer.Bind();
 
-			dqBuffer.Unbind();
+				glDrawArrays(GL_TRIANGLES, 0, 6);
+
+				dqBuffer.Unbind();
+			}
 
 			/* Swap front and back buffers */
 			glfwSwapBuffers(window);

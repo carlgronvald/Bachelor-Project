@@ -3,7 +3,9 @@
 #include <GLFW/glfw3.h>
 #include <iostream>
 #include <string>
+#include <map>
 #include "Texture.h"
+
 class Shader
 {
 public:
@@ -17,10 +19,12 @@ public:
 	bool isComputeShader();
 	//If it is a compute shader, compute it onto the given texture.
 	void compute(int w, int h, int d, Texture texture);
-	unsigned int GetUniformLocation(const char* location);
+	void CreateUniformLocation(std::string location);
+	unsigned int GetUniformLocation(std::string location);
 private:
 	unsigned int id;
 	bool computeShader;
+	std::map<std::string, unsigned int> uniforms;
 
 
 };

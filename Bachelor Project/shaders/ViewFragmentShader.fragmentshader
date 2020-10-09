@@ -5,8 +5,6 @@ in vec3 vColor;
 in mat2 dUV[5];
 in vec2 vertexxy;
 in float viewParts[5];
-in float d; //Just a temporary measure
-in float dd;
 
 uniform sampler2D externalTexture[5];
 uniform sampler2D depthTexture[5];
@@ -21,13 +19,24 @@ void main() {
 	vec2 screenxy = vec2(gl_FragCoord.x / 1000, gl_FragCoord.y / 1000); //Fragment xy
 
 	//color = vec3((screenxy-vertexxy),0);
-
+	vec4 tcolor = vec4(0);
 	//color = vec4(0,1,0,1);
+	float vt=0;
 	for(int i=0;i<5;i++) {
-		color += texture(externalTexture[i], dUV[i]*(screenxy-vertexxy)+UVs[i])*viewParts[i];
+		tcolor += texture(externalTexture[i], dUV[i]*(screenxy-vertexxy)+UVs[i])*viewParts[i];
+		vt += viewParts[i];
 	}
-	//color = vec4( dot( texture(depthTexture[0], screenxy), vec4(1,256,65536,16777216))/16777216.0, 0,0,1);
-	color = vec4(abs(d-dd),0,0,1);
+
+	//color = vec4(clamp(viewParts[0],-1,1)/2+0.5,clamp(viewParts[1],-1,1)/2+0.5,clamp(viewParts[2],-1,1)/2+0.5,1);
+
+	vt = clamp(vt,0,1);
+	
+	color = (tcolor*vt + vec4(vColor,1)*(1.0-vt))*0.9 + vec4(vt,1-vt,vt,1)*0.1;
+	//color = vec4(0,viewParts[0],viewParts[1],1);
+	//color = vec4(vt,1-vt,vt,1);
+	//color = vec4( dot( texture(depthTexture[0], screz`enxy), vec4(1,256,65536,16777216))/16777216.0, 0,0,1);
+	//color = vec4(abs(d-dd),0,0,1);
+	//color = vec4(abs(d));
 	//color = vec4(dUV[0][0][0], dUV[0][0][1], 1,1);
 	//color = vec4(vColor,1);
 }

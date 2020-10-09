@@ -17,22 +17,13 @@ uniform vec3 viewLoc[5];
 uniform vec3 camLoc;
 uniform vec3 camDir;
 
-uniform sampler2D depthTexture[5];
-uniform float minDepth[5];
-uniform float maxDepth[5];
-
 float sigma2 = 1;
 
 float weight(float d2, float x) { //Returns the weighing of a view given squared distance and angle
 	return exp(-d2*x*x/2*1);
 }
 
-float cameraDepth(vec4 tex, int i) {
-	return dot(tex, vec4(1,256,65536,16777216))/16777216.0 * (maxDepth[i]-minDepth[i]) + minDepth[i];
-}
-
-
-float near = 0.1; 
+float near = 0.01; 
 float far  = 100.0; 
   
 float LinearizeDepth(float depth) 
@@ -61,7 +52,6 @@ void main() {
 	vec4 dxview,dyview;
 	vec4 viewPos;
 	vec2 dUVx,dUVy;
-	float d;
 
 	float totalViewPart = 0;
 	
@@ -76,11 +66,8 @@ void main() {
 		float d2 = dot(viewLoc[i]-camLoc,viewLoc[i]-camLoc);
 		float x = acos(dot(viewDir[i],camDir));
 
-		d = abs(LinearizeDepth( texture(depthTexture[i], (viewPos.xy/viewPos.z+vec2(1))/2).x )*0.8 - viewPos.z); 
-
-		//d = abs(cameraDepth( texture(depthTexture[i], (viewPos.xy/viewPos.z+vec2(1))/2), i ) - viewPos.z); 
-
-		viewParts[i] = clamp( weight(d2,x)  - pow(  viewPos.x/viewPos.z*viewPos.x/viewPos.z, 64) - pow(viewPos.y/viewPos.z*viewPos.y/viewPos.z, 64)  - pow(d*2,4) ,0,1);
+	
+		viewParts[i] = clamp( weight(d2,x)  - pow(  viewPos.x/viewPos.z*viewPos.x/viewPos.z, 64) - pow(viewPos.y/viewPos.z*viewPos.y/viewPos.z, 64) ,0,1);
 		totalViewPart += viewParts[i];
 		UVs[i] = ((viewPos.xy/viewPos.w)+vec2(1,1))/2;
 		dUV[i] = mat2(dUVx,dUVy)*100;
@@ -92,11 +79,6 @@ void main() {
 
 	viewPos = viewMVP[0] * vec4(vertexPosition_modelspace, 1);
 	//TESTING!!!!
-	d =abs( cameraDepth( texture(depthTexture[0], (viewPos.xy/viewPos.z+vec2(1))/2 ) , 0) - viewPos.z)/6;
-	//viewParts[0] = clamp((LinearizeDepth( texture(depthTexture[0], (viewPos.xy/viewPos.w+vec2(1))/2).x )*0.8 -viewPos.z),0,1);
-	//viewParts[1] = -clamp((LinearizeDepth( texture(depthTexture[0], (viewPos.xy/viewPos.w+vec2(1))/2).x )*0.8 -viewPos.z),-1,0);
-	//viewParts[1] = clamp(viewPos.z,0,1);
-	//viewParts[2] = clamp((LinearizeDepth( texture(depthTexture[0], (viewPos.xy/viewPos.w+vec2(1))/2).x )/8),0,1);
 	//viewParts[0] = 1;
 	//viewParts[1]=0;
 	//viewParts[2]=0;

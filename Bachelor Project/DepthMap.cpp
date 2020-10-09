@@ -29,3 +29,6 @@ void DepthMap::setMaxDepth(float depth) {
 void DepthMap::setMinDepth(float depth) {
 	this->minDepth = depth;
 }
+void DepthMap::setTexture(const Texture& texture) {
+	this->texture = texture;
+}
