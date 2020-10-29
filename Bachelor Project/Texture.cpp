@@ -7,18 +7,23 @@ Texture::Texture() {
 
 Texture::Texture(std::string file, bool rgba)
 {
+	std::cout << "Starting reading texture from file " << file << std::endl;
 	int bpp;
 	unsigned char* rgb_image = stbi_load(file.c_str(), &width, &height, &bpp, rgba ? 4 : 3);
-
+	std::cout << "bopo1 " << width << "," << height << "," << bpp << std::endl;
 	glGenTextures(1, &id);
+	std::cout << "bopo21" << std::endl;
 	glBindTexture(GL_TEXTURE_2D, id);
+	std::cout << "bopo13" << std::endl;
 
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_COMPARE_FUNC, GL_LEQUAL);
+	std::cout << "bopo52" << std::endl;
 	glTexImage2D(GL_TEXTURE_2D, 0, rgba ? GL_RGBA : GL_RGB, width,height, 0, rgba ? GL_RGBA : GL_RGB, GL_UNSIGNED_BYTE, rgb_image);
+	std::cout << "bopo51" << std::endl;
 	glBindTexture(GL_TEXTURE_2D, 0);
 	this->format = rgba ? GL_RGBA : GL_RGB;
 	this->type = rgba ? GL_RGBA : GL_RGB;

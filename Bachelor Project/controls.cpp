@@ -23,6 +23,7 @@ float extFov = 53.5341f;
 float speed = 1.5f; // 3 units / second
 float mouseSpeed = 0.005f;
 float pointSize = 8;
+float kdt=1, kd=1, kt=1, kc=1;
 
 glm::mat4 getViewMatrix() {
 	return ViewMatrix;
@@ -48,6 +49,18 @@ float getExtFOV() {
 }
 float getPointSize() {
 	return pointSize;
+}
+float getkdt() {
+	return kdt;
+}
+float getkd() {
+	return kd;
+}
+float getkt() {
+	return kt;
+}
+float getkc() {
+	return kc;
 }
 
 bool vDown = false;
@@ -108,11 +121,11 @@ void computeMatricesFromInputs(GLFWwindow* window) {
 
 	// Increase ext fov
 	if (glfwGetKey(window, GLFW_KEY_Z) == GLFW_PRESS) {
-		extFov += deltaTime * speed * 0.01;
+		extFov += deltaTime * speed * 01;
 		std::cout << "Fov: " << extFov << std::endl;
 	}// Increase ext fov
 	if (glfwGetKey(window, GLFW_KEY_X) == GLFW_PRESS) {
-		extFov -= deltaTime * speed * 0.01;
+		extFov -= deltaTime * speed * 01;
 		std::cout << "Fov: " << extFov << std::endl;
 	}
 
@@ -122,6 +135,34 @@ void computeMatricesFromInputs(GLFWwindow* window) {
 	}
 	if (glfwGetKey(window, GLFW_KEY_O) == GLFW_PRESS) {
 		pointSize -= deltaTime * 2;
+	}
+
+	if (glfwGetKey(window, GLFW_KEY_V) == GLFW_PRESS) {
+		kdt += deltaTime * 0.1;
+	}
+	if (glfwGetKey(window, GLFW_KEY_B) == GLFW_PRESS) {
+		kdt -= deltaTime * 0.1;
+	}
+
+	if (glfwGetKey(window, GLFW_KEY_N) == GLFW_PRESS) {
+		kd += deltaTime * 0.1;
+	}
+	if (glfwGetKey(window, GLFW_KEY_M) == GLFW_PRESS) {
+		kd -= deltaTime * 0.1;
+	}
+
+	if (glfwGetKey(window, GLFW_KEY_H) == GLFW_PRESS) {
+		kt += deltaTime * 0.1;
+	}
+	if (glfwGetKey(window, GLFW_KEY_J) == GLFW_PRESS) {
+		kt -= deltaTime * 0.1;
+	}
+
+	if (glfwGetKey(window, GLFW_KEY_K) == GLFW_PRESS) {
+		kc += deltaTime * 0.1;
+	}
+	if (glfwGetKey(window, GLFW_KEY_L) == GLFW_PRESS) {
+		kc -= deltaTime * 0.1;
 	}
 
 	float FoV = initialFoV;// - 5 * glfwGetMouseWheel(); // Now GLFW 3 requires setting up a callback for this. It's a bit too complicated for this beginner's tutorial, so it's disabled instead.

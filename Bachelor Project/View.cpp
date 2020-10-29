@@ -4,7 +4,10 @@ View::View() {
 
 }
 View::View(int id, glm::quat quaternion, glm::vec3 translation, std::string imgfile, std::string depthfile, float minDepth, float maxDepth) : id(id), position(translation), texture(imgfile) {
-	rotation = glm::toMat3(quaternion);
+	std::cerr << "Poopface" << std::endl;
+	rotation = glm::toMat3(quaternion);;
+	std::cout << "About to make depth map.. " << std::endl;
+	std::cout << depthfile.c_str() << std::endl;
 	depthMap = DepthMap(depthfile.c_str(), minDepth, maxDepth);
 }
 

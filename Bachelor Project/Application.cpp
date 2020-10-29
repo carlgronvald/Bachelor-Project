@@ -22,6 +22,7 @@
 #include "Buffer.h"
 #include "Viewset.h"
 #include "DepthMap.h"
+#include "Octree.h"
 
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
@@ -333,6 +334,25 @@ class Application {
 		glDeleteRenderbuffers(1, &depthRenderbuffer);
 	}
 
+
+	//Creates the depth map confidence map for one view
+	Texture* synthesizeConfidenceMap(View view, Shader kernelShader) {
+		kernelShader.Bind();
+		Texture colmapDepthTexture = view.getDepthMap().getTexture();
+		Texture* confidenceTexture = new Texture(colmapDepthTexture.getWidth(), colmapDepthTexture.getHeight(), GL_RGBA32F, GL_RGBA, nullptr); //Should it be RGBA32F?
+		
+		// A discrete laplacian kernel.
+		glm::mat3 kernel(0,1,0,1,-4,1,0,1,0);
+		glUniformMatrix3fv(kernelShader.GetUniformLocation("convolutionMatrix"), 1, GL_FALSE, &kernel[0][0]);
+		//TODO: INSERT FROM TEXTURE HERE
+		glActiveTexture(GL_TEXTURE0);
+		glBindTexture(GL_TEXTURE_2D, colmapDepthTexture.getId());
+		glUniform1i(kernelShader.GetUniformLocation("fromTex"), 0);
+
+		kernelShader.compute(confidenceTexture->getWidth(), confidenceTexture->getHeight(), 1, *confidenceTexture);
+		return confidenceTexture;
+	}
+
 public:
 	bool multipleViews;
 	int width = 1000, height = 1000;
@@ -345,6 +365,7 @@ public:
 	Buffer vBuffer, nBuffer, cBuffer;
 	bool depthsSynthesized = false;
 	Texture relevantDepthTextures[VIEWNUM];
+	float clearColor[3];
 
 	Application() {
 
@@ -370,9 +391,15 @@ public:
 		glGetIntegerv(GL_MAX_COMPUTE_WORK_GROUP_INVOCATIONS, &work_grp_invocations);
 		std::cout << "Work group invocations: " << work_grp_invocations << std::endl;
 
+		Shader colmapDepthmapConvShader("shaders/compute/ColmapDepthmapConverter.computeshader");
+		colmapDepthmapConvShader.CreateUniformLocation("fromTex");
+		colmapDepthmapConvShader.CreateUniformLocation("minDepth");
+		colmapDepthmapConvShader.CreateUniformLocation("maxDepth");
+
+		//Create the kernel shader. That file should probably be renamed
 		Shader computeShader("shaders/compute/DepthMapComputer.computeshader");
-		Texture computeTexture(512, 512, GL_RGBA32F, GL_RGBA, nullptr);
-		computeShader.compute(512, 512, 1, computeTexture);
+		computeShader.CreateUniformLocation("fromTex");
+		computeShader.CreateUniformLocation("convolutionMatrix");
 
 
 		std::cout << "making testview! " << std::endl;
@@ -381,6 +408,12 @@ public:
 		happly::PLYData p = readPly("testview/outside.ply", 1);
 #else
 		vs = Viewset("gerrardview");
+
+		//Time to test the depthmap conversion compute shader
+		Texture* ctex = synthesizeConfidenceMap(vs.getView(0), computeShader);
+		std::cout << "Synthesized depth map confidence map" << std::endl;
+
+		std::cout << "Now reading object" << std::endl;
 		happly::PLYData p = readPly("gerrardview/object.ply", 1);
 #endif
 		std::cout << vs.getViews()[0].getPosition()[0] << ", " << vs.getViews()[0].getPosition()[1] << "," << vs.getViews()[0].getPosition()[2] << std::endl;
@@ -395,6 +428,12 @@ public:
 		PointCloud* pc = p.pc;
 		//pc->createQuadVertexPositions();
 		std::cout << "Points: " << p.pc->getLength() << std::endl;
+		glClearColor(pc->avgColor[0], pc->avgColor[1], pc->avgColor[2], 1);
+
+		//SURFEL STRIPPING SEEMS UNFIT TO THE PROBLEM. I'LL TRY IMPLEMENTING IT ANYWAY, MAYBE
+		//Octree oc(pc->vertexPositions, pc->realVertexColors, pc->vertexNormals, pc->getLength());
+
+
 #ifndef SIMPLE
 		unsigned int framebufferName = 0;
 		glGenFramebuffers(1, &framebufferName);
@@ -498,6 +537,7 @@ public:
 		visualDepthShader.CreateUniformLocation("depthTexture");
 		visualDepthShader.CreateUniformLocation("minDepth");
 		visualDepthShader.CreateUniformLocation("maxDepth");
+		
 
 		Shader** shaders = new Shader*[2]{ &visualShader, &visualDepthShader };
 
@@ -510,6 +550,11 @@ public:
 			shaders[i]->CreateUniformLocation("camDir");
 			shaders[i]->CreateUniformLocation("camLoc");
 			shaders[i]->CreateUniformLocation("MVP");
+			//Proportionality constants
+			shaders[i]->CreateUniformLocation("kdt");
+			shaders[i]->CreateUniformLocation("kd");
+			shaders[i]->CreateUniformLocation("kt");
+			shaders[i]->CreateUniformLocation("kc");
 		}
 		delete[] shaders;
 #endif
@@ -610,12 +655,14 @@ public:
 			glm::mat4 ExternalMVP2 = ExternalProjectionMatrix2 * ExternalViewMatrix2 * ModelMatrix;
 #endif
 
+			std::stringstream ss;
+			//ss << "(" << Position[0] << "," << Position[1] << "," << Position[2] << ") (" << Angles[0] << "," << Angles[1] << ")";
+			ss << "kdt " << getkdt() << ", kd" << getkd() << ", kt" << getkt() << ", kc" << getkc();
+
+			glfwSetWindowTitle(window, ss.str().c_str());
 
 /*			Renders depth unto framebuffer texture.
 
-			std::stringstream ss;
-			ss << "(" << Position[0] << "," << Position[1] << "," << Position[2] << ") (" << Angles[0] << "," << Angles[1] << ")";
-			glfwSetWindowTitle(window, ss.str().c_str());
 
 			glBindFramebuffer(GL_FRAMEBUFFER, depthRenderbuffer);
 			glViewport(0, 0, width, height); //Render on the entire framebuffer.
@@ -688,6 +735,11 @@ public:
 				glUniform1iv(activeShader->GetUniformLocation("depthTexture"), 5, &depthSlotRefs[0]);
 				glUniform1fv(activeShader->GetUniformLocation("minDepth"), 5, &minDepths[0]);
 				glUniform1fv(activeShader->GetUniformLocation("maxDepth"), 5, &maxDepths[0]);
+
+				glUniform1f(activeShader->GetUniformLocation("kdt"), getkdt());
+				glUniform1f(activeShader->GetUniformLocation("kd"), getkd());
+				glUniform1f(activeShader->GetUniformLocation("kt"), getkt());
+				glUniform1f(activeShader->GetUniformLocation("kc"), getkc()); 
 			}
 #else
 			glUniformMatrix4fv(ExternalMatrixID, 1, GL_FALSE, &ExternalMVP[0][0]);
@@ -733,7 +785,19 @@ public:
 
 			glViewport(width/2, 0, width / 2, height / 2);
 
-			if (depthsSynthesized) {
+			debugShader.Bind();
+
+			glActiveTexture(GL_TEXTURE0);
+			glBindTexture(GL_TEXTURE_2D, ctex->getId());
+			glUniform1i(debugTexId, 0);
+
+			dqBuffer.Bind();
+
+			glDrawArrays(GL_TRIANGLES, 0, 6);
+
+			dqBuffer.Unbind();
+
+			/*if (depthsSynthesized) {
 				debugShader.Bind();
 
 				glActiveTexture(GL_TEXTURE0);
@@ -745,7 +809,7 @@ public:
 				glDrawArrays(GL_TRIANGLES, 0, 6);
 
 				dqBuffer.Unbind();
-			}
+			}*/
 
 			/* Swap front and back buffers */
 			glfwSwapBuffers(window);
@@ -761,6 +825,40 @@ public:
 };
 
 int main(void) {
+	float* expoints = new float[8 * 3]{
+
+		0.0, 0.0, 0.0,
+		1.0, 0.0, 0.0,
+		0.0, 1.0, 0.0,
+		1.0, 1.0, 0.0,
+		0.0, 0.0, 1.0,
+		1.0, 0.0, 1.0,
+		0.0, 1.0, 1.0,
+		1.0, 1.0, 1.0
+	};
+	float* cols = new float[8 * 3]{
+		0.0, 0.0, 0.0,
+		1.0, 0.0, 0.0,
+		0.0, 1.0, 0.0,
+		1.0, 1.0, 0.0,
+		0.0, 0.0, 1.0,
+		1.0, 0.0, 1.0,
+		0.0, 1.0, 1.0,
+		1.0, 1.0, 1.0
+	};
+	float *norms = new float[8 * 3]{
+
+		0.0, 0.0, 0.0,
+		1.0, 0.0, 0.0,
+		0.0, 1.0, 0.0,
+		1.0, 1.0, 0.0,
+		0.0, 0.0, 1.0,
+		1.0, 0.0, 1.0,
+		0.0, 1.0, 1.0,
+		1.0, 1.0, 1.0
+	};
+	//Octree oc(expoints, cols, norms, 8);
+	
 	Application a;
 	return a.main();
 }

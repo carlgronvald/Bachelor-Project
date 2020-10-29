@@ -10,4 +10,8 @@ glm::vec3 getDirection();
 glm::vec2 getAngles();
 float getExtFOV();
 float getPointSize();
+float getkdt();
+float getkd();
+float getkt();
+float getkc();
 #endif

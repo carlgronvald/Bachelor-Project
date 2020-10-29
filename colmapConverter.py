@@ -12,12 +12,12 @@ import numpy as np
 
 A = cv2.UMat(np.array([[3838.27,0,2808],[0,3837.22,1872],[0,0,1]]))
 
-image_file_path = "gerrard-hall\\gerrard-hall\\dense\\0\\sparse\\images.txt"
-image_file_output_path = "gerrard-hall\\gerrard-hall\\dense\\0\\view.txt"
-image_folder = "gerrard-hall\\gerrard-hall\\dense\\0\\images2\\"
-depth_folder = "gerrard-hall\\gerrard-hall\\dense\\0\\stereo\\depth_maps2\\"
+image_file_path = "Colmap_tree\\dense\\0\\sparse\\images.txt"
+image_file_output_path = "Colmap_tree\\dense\\0\\view.txt"
+image_folder = "Colmap_tree\\dense\\0\\images2\\"
+depth_folder = "Colmap_tree\\dense\\0\\stereo\\depth_maps2\\"
 
-rename_images = False
+rename_images = True
 rename_depth_maps = True
 
 def renameImage(imageName, ID):

@@ -28,9 +28,13 @@ public:
 	//
 	void createRealVertexColors() {
 		realVertexColors = new float[3 * length];
+		int avgExactColor[3] = { 0,0,0 };
 		for (int i = 0; i < length * 3; i++) {
 			realVertexColors[i] = vertexColors[i] / 255.f;
+			avgExactColor[i % 3] += vertexColors[i];
 		}
+		for(int i=0;i<3;i++)
+			avgColor[i] = (avgExactColor[i] / length)/255.f;
 	}
 
 	float* vertexPositions;
@@ -38,6 +42,7 @@ public:
 	float* realVertexColors;
 	float* vertexNormals;
 	const int length;
+	float avgColor[3];
 
 	float* quadVertexPositions;
 	void createQuadVertexPositions() {

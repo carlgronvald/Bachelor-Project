@@ -21,16 +21,26 @@ uniform sampler2D depthTexture[5];
 uniform float minDepth[5];
 uniform float maxDepth[5];
 
+//Proportionality constants for gaussian weights
+uniform float kdt;
+uniform float kd;
+uniform float kt;
+uniform float kc;
+
+
 float sigma2 = 1;
 
-float weight(float d2, float x) { //Returns the weighing of a view given squared distance and angle
-	return exp(-d2*x*x/2*1);
+float weight(float d2, float x, float c) { //Returns the weighing of a view given squared distance, angle, and shadow map confidence
+	return exp(-d2*x*x*kdt - d2*kd - x*x*kt -c*c*kc);
 }
 
 float cameraDepth(vec4 tex, int i) {
 	return dot(tex, vec4(1,256,65536,16777216))/16777216.0 * (maxDepth[i]-minDepth[i]) + minDepth[i];
 }
 
+float camera(vec4 tex, int i) {
+	return dot(tex, vec4(1,256,65536,16777216))/16777216.0 * (maxDepth[i]-minDepth[i]) + minDepth[i];
+}
 
 float near = 0.1; 
 float far  = 100.0; 
@@ -80,7 +90,7 @@ void main() {
 
 		//d = abs(cameraDepth( texture(depthTexture[i], (viewPos.xy/viewPos.z+vec2(1))/2), i ) - viewPos.z); 
 
-		viewParts[i] = clamp( weight(d2,x)  - pow(  viewPos.x/viewPos.z*viewPos.x/viewPos.z, 64) - pow(viewPos.y/viewPos.z*viewPos.y/viewPos.z, 64)  - pow(d*2,4) ,0,1);
+		viewParts[i] = clamp( weight(d2,x, 0)  - pow(  viewPos.x/viewPos.z*viewPos.x/viewPos.z, 64) - pow(viewPos.y/viewPos.z*viewPos.y/viewPos.z, 64)  - pow(d*2,64) ,0,1);
 		totalViewPart += viewParts[i];
 		UVs[i] = ((viewPos.xy/viewPos.w)+vec2(1,1))/2;
 		dUV[i] = mat2(dUVx,dUVy)*100;
