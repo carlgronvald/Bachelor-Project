@@ -5,6 +5,7 @@
 #define UPDATE_VIEWS_BASED_ON_LOCATION	//Whether views should be changed out based on location
 //#define NORMALS						//Renders vertices with colors based on normals
 //#define RAPID_LOAD					//Loads a fast, small dataset
+//#define NO_POINTS						//Doesn't load nor render points
 
 #define VIEWNUM 5 //Note: This is not fully implemented yet. It is the number of views used.
 
@@ -62,7 +63,7 @@ class Application {
 
 
 	int init() {
-		curPic = 0; //TODO: FIGURE OUT WHAT PICUTRE WE'RE AT TO AVOID OVERRIDING
+		curPic = 0; //TODO: FIGURE OUT WHAT SCREENSHOT WE'RE AT TO AVOID OVERRIDING
 #ifdef MULTIPLE_VIEWS
 		multipleViews = true;
 #endif
@@ -127,6 +128,228 @@ class Application {
 		return std::exp((-d2 * x*x -d2) / sigma2);
 	}
 
+	void renderPoints() {
+
+#ifdef SIMPLE
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+		visualShader.Bind();
+
+		computeMatricesFromInputs(window);
+		glm::mat4 ProjectionMatrix = getProjectionMatrix();
+		glm::mat4 ViewMatrix = getViewMatrix();
+		glm::mat4 ModelMatrix = glm::mat4(1.0);
+		glm::mat4 MVP = ProjectionMatrix * ViewMatrix * ModelMatrix;
+
+		glUniformMatrix4fv(MatrixID, 1, GL_FALSE, &MVP[0][0]);
+
+		vBuffer.Bind();
+		cBuffer.Bind();
+		nBuffer.Bind();
+
+		glDrawArrays(GL_POINTS, 0, pc->getLength());
+
+		vBuffer.Unbind();
+		cBuffer.Unbind();
+		nBuffer.Unbind();
+
+		/* Swap front and back buffers */
+		glfwSwapBuffers(window);
+
+		/* Poll for and process events */
+		glfwPollEvents();
+#else
+		computeMatricesFromInputs(window);
+
+
+		glm::vec3 Position = getPosition();
+		glm::vec2 Angles = getAngles();
+		glm::vec3 Direction = getDirection();
+
+		View relevantView = ChooseView(Position, Direction, vs);
+
+		glm::mat4 ProjectionMatrix = getProjectionMatrix();
+		glm::mat4 ViewMatrix = getViewMatrix();
+		if (glfwGetKey(window, GLFW_KEY_C) == GLFW_PRESS) {
+			ViewMatrix = relevantView.getViewMatrix();
+		}
+		glm::mat4 ModelMatrix = glm::mat4(1.0);
+		glm::mat4 MVP = ProjectionMatrix * ViewMatrix * ModelMatrix;
+
+#ifdef MULTIPLE_VIEWS
+		glm::mat4 ExternalViewMatrices[5];
+		glm::mat4 ExternalProjectionMatrix = glm::perspective(glm::radians(getExtFOV()), 5616 / 3744.f, 0.1f, 100.0f);
+		glm::mat4 ExternalMVPs[5];
+
+		glm::vec3 ExternalViewDirs[5];
+		glm::vec3 ExternalViewLocs[5];
+
+#ifdef UPDATE_VIEWS_BASED_ON_LOCATION
+		chooseViews(Position, Direction, vs);
+#endif
+		if (glfwGetKey(window, GLFW_KEY_G) == GLFW_PRESS) {
+			synthesizeRelevantDepths();
+			depthsSynthesized = true;
+		}
+
+		for (int i = 0; i < 5; i++) {
+			ExternalViewMatrices[i] = relevantViews[i].getViewMatrix();
+			ExternalMVPs[i] = ExternalProjectionMatrix * ExternalViewMatrices[i] * ModelMatrix;
+
+			ExternalViewDirs[i] = relevantViews[i].getDirection();
+			ExternalViewLocs[i] = relevantViews[i].getPosition();
+		}
+#else
+		glm::mat4 ExternalViewMatrix = relevantView.getViewMatrix();
+		glm::mat4 ExternalProjectionMatrix = glm::perspective(glm::radians(67.f), 3 / 4.f, 0.1f, 100.0f);
+		glm::mat4 ExternalMVP = ExternalProjectionMatrix * ExternalViewMatrix * ModelMatrix;
+
+		glm::mat4 ExternalViewMatrix2 = vs.getViews()[1].getViewMatrix();
+		glm::mat4 ExternalProjectionMatrix2 = glm::perspective(glm::radians(67.f), 3 / 4.f, 0.1f, 100.0f);
+		glm::mat4 ExternalMVP2 = ExternalProjectionMatrix2 * ExternalViewMatrix2 * ModelMatrix;
+#endif
+
+		std::stringstream ss;
+		//ss << "(" << Position[0] << "," << Position[1] << "," << Position[2] << ") (" << Angles[0] << "," << Angles[1] << ")";
+		ss << "kdt " << getkdt() << ", kd" << getkd() << ", kt" << getkt() << ", kc" << getkc();
+
+		glfwSetWindowTitle(window, ss.str().c_str());
+
+#ifndef NO_POINTS
+		/*			Renders depth unto framebuffer texture.
+
+
+		glBindFramebuffer(GL_FRAMEBUFFER, depthRenderbuffer);
+		glViewport(0, 0, width, height); //Render on the entire framebuffer.
+
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+		depthShader.Bind();
+
+		vBuffer.Bind();
+		cBuffer.Bind();
+		nBuffer.Bind();
+
+		glUniformMatrix4fv(depthMatrixId, 1, GL_FALSE, &MVP[0][0]);
+
+		glDrawArrays(GL_POINTS, 0, pc->getLength());
+
+		vBuffer.Unbind();
+		cBuffer.Unbind();
+		nBuffer.Unbind();*/
+
+		if (depthsSynthesized)
+			activeShader = &visualDepthShader;
+		else
+			activeShader = &visualShader;
+
+
+		//Time to render to screen again
+		glBindFramebuffer(GL_FRAMEBUFFER, 0);
+		glViewport(0, 0, width, height);
+
+		glPointSize(getPointSize());
+
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+		//Put the visual shader back
+		activeShader->Bind();
+
+		vBuffer.Bind();
+		cBuffer.Bind();
+		nBuffer.Bind();
+
+		glUniformMatrix4fv(activeShader->GetUniformLocation("MVP"), 1, GL_FALSE, &MVP[0][0]);
+
+#ifdef MULTIPLE_VIEWS
+		glUniformMatrix4fv(activeShader->GetUniformLocation("viewMVP"), 5, GL_FALSE, &ExternalMVPs[0][0][0]);
+		glUniform3fv(activeShader->GetUniformLocation("viewDir"), 5, &ExternalViewDirs[0][0]);
+		glUniform3fv(activeShader->GetUniformLocation("viewLoc"), 5, &ExternalViewLocs[0][0]);
+
+		glUniform3fv(activeShader->GetUniformLocation("camDir"), 1, &Direction[0]);
+		glUniform3fv(activeShader->GetUniformLocation("camLoc"), 1, &Position[0]);
+		float minDepths[5];
+		float maxDepths[5];
+		for (int i = 0; i < 5; i++) {
+			glActiveTexture(textureSlots[i]);
+			glBindTexture(GL_TEXTURE_2D, relevantViews[i].getTexture().getId());
+
+
+			glActiveTexture(depthTextureSlots[i]);
+			glBindTexture(GL_TEXTURE_2D, relevantDepthTextures[i].getId());
+			//glBindTexture(GL_TEXTURE_2D, relevantViews[i].getDepthMap().getTexture().getId());
+			minDepths[i] = relevantViews[i].getDepthMap().getMinDepth();
+			maxDepths[i] = relevantViews[i].getDepthMap().getMaxDepth();
+
+			glActiveTexture(confidenceTextureSlots[i]);
+			glBindTexture(GL_TEXTURE_2D, relevantConfidenceTextures[i].getId());
+		}
+
+		int slotRefs[] = { 1,2,3,4,5 };
+		glUniform1iv(activeShader->GetUniformLocation("externalTexture"), 5, &slotRefs[0]);
+
+		if (depthsSynthesized) {
+			int depthSlotRefs[] = { 6,7,8,9,10 };
+			glUniform1iv(activeShader->GetUniformLocation("depthTexture"), 5, &depthSlotRefs[0]);
+			glUniform1fv(activeShader->GetUniformLocation("minDepth"), 5, &minDepths[0]);
+			glUniform1fv(activeShader->GetUniformLocation("maxDepth"), 5, &maxDepths[0]);
+			int confidenceSlotRefs[] = { 11,12,13,14,15 };
+			glUniform1iv(activeShader->GetUniformLocation("confidenceTexture"), 5, &confidenceSlotRefs[0]);
+
+			glUniform1f(activeShader->GetUniformLocation("kdt"), getkdt());
+			glUniform1f(activeShader->GetUniformLocation("kd"), getkd());
+			glUniform1f(activeShader->GetUniformLocation("kt"), getkt());
+			glUniform1f(activeShader->GetUniformLocation("kc"), getkc());
+		}
+#else
+		glUniformMatrix4fv(ExternalMatrixID, 1, GL_FALSE, &ExternalMVP[0][0]);
+		glUniformMatrix4fv(ExternalMatrix2ID, 1, GL_FALSE, &ExternalMVP2[0][0]);
+		glm::vec3 vector(1, 0, 0);
+		glm::vec3 vector2(0.0, 1, 1);
+		glUniform3fv(ExternalViewDirID, 1, &vector[0]);
+		glUniform3fv(ExternalViewDir2ID, 1, &vector2[0]);
+		glActiveTexture(GL_TEXTURE1);
+		glBindTexture(GL_TEXTURE_2D, relevantView.getTexture().getId());
+		glUniform1i(ExternalTexID, 1);
+		glActiveTexture(GL_TEXTURE2);
+		glBindTexture(GL_TEXTURE_2D, vs.getViews()[1].getTexture().getId());
+		glUniform1i(ExternalTex2ID, 2);
+
+#endif
+		// This was used to input the depth as seen from the camera
+		//glActiveTexture(GL_TEXTURE0);
+		//glBindTexture(GL_TEXTURE_2D, depthTexture);
+		//glUniform1i(DepthTexID, 0);
+
+
+
+		//I'm not sure this is how I want to do it.
+		glDrawArrays(GL_POINTS, 0, pc->getLength());
+
+		vBuffer.Unbind();
+		cBuffer.Unbind();
+		nBuffer.Unbind();
+		//  UNBIND TO RENDER CAMERAS
+		glPointSize(72);
+
+
+		v2Buffer.Bind();
+		c2Buffer.Bind();
+		n2Buffer.Bind();
+		glDrawArrays(GL_POINTS, 0, c2Buffer.GetLength());
+		v2Buffer.Unbind();
+		c2Buffer.Unbind();
+		n2Buffer.Unbind();
+#else //End of NO_POINTS ifn
+
+glBindFramebuffer(GL_FRAMEBUFFER, 0);
+glViewport(0, 0, width, height);
+
+glPointSize(getPointSize());
+
+glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+#endif //End of NO_POINTS ifn else
+	}
+
 
 	// Updates relevantViews[]
 	void chooseViews(glm::vec3 position, glm::vec3 direction, Viewset viewset) {
@@ -150,133 +373,13 @@ class Application {
 		}
 	}
 
-	//Generate synthetic depth maps using opengl depth texturesTODO
-	void synthesizeDepth() {
-		glPointSize(5);
-		int vWidth = vs.getView(0).getDepthMap().getTexture().getWidth();
-		int vHeight = vs.getView(0).getDepthMap().getTexture().getHeight();
 
+	//So, I need a way to draw onto a render buffer of the same size as the texture for optimal comparisons.
+	int CalculateImageDifference() {
 
-
-		unsigned int synth_fbo;
-		glGenFramebuffers(1, &synth_fbo);
-		glBindFramebuffer(GL_FRAMEBUFFER, synth_fbo);
-		/*if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
-			std::cout << "Framebuffer creation failed!!" << std::endl;
-			return;
-		}*/
-
-		// The depth buffer
-		unsigned int depthRenderbuffer;
-		glGenRenderbuffers(1, &depthRenderbuffer);
-		glBindRenderbuffer(GL_RENDERBUFFER, depthRenderbuffer);
-		glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT, vWidth, vHeight);
-		glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, depthRenderbuffer);
-
-		glDrawBuffer(GL_NONE);
-
-		if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
-			std::cout << "ERROR::FRAMEBUFFER:: Framebuffer is not complete!" << std::endl;
-
-		glm::mat4 projectionMatrix = glm::perspective(glm::radians(getExtFOV()), float(vWidth)/vHeight, 0.1f, 100.0f);
-		glm::mat4 MVP;
-
-		glViewport(0, 0, vWidth, vHeight); //Render on the camera
-
-		Shader synthShader("shaders/DepthVertexShader.vertexshader", "shaders/DepthFragmentShader.fragmentshader");
-		unsigned int matrixId = synthShader.GetUniformLocation("MVP");
-		synthShader.Bind();
-
-		vBuffer.Bind();
-		cBuffer.Bind();
-		nBuffer.Bind();
-		for (int i = 0; i < vs.getViews().size(); i++) {
-			vs.getView(i).getDepthMap().setTexture(Texture(vWidth, vHeight, GL_DEPTH_COMPONENT16, GL_DEPTH_COMPONENT, NULL));
-			glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, vs.getView(i).getDepthMap().getTexture().getId(), 0);
-			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-			MVP = projectionMatrix * vs.getView(i).getViewMatrix() * glm::mat4(1);
-
-			vs.getView(i).getDepthMap().setMaxDepth(20.f);
-			vs.getView(i).getDepthMap().setMinDepth(0.1f);
-			glUniformMatrix4fv(matrixId, 1, GL_FALSE, &MVP[0][0]);
-
-			glDrawArrays(GL_POINTS, 0, vBuffer.GetLength());
-
-		}
-		vBuffer.Unbind();
-		cBuffer.Unbind();
-		nBuffer.Unbind();
-
-		glBindFramebuffer(GL_FRAMEBUFFER, 0);
-
-		glDeleteFramebuffers(1, &synth_fbo);
-		glDeleteRenderbuffers(1, &depthRenderbuffer);
 	}
 
-
-	//Generate synthetic depth maps  TODO 
-	void synthesizeDepth2() {
-		glPointSize(5);
-		int vWidth = vs.getView(0).getDepthMap().getTexture().getWidth();
-		int vHeight = vs.getView(0).getDepthMap().getTexture().getHeight();
-
-
-		unsigned int synth_fbo;
-		glGenFramebuffers(1, &synth_fbo);
-		glBindFramebuffer(GL_FRAMEBUFFER, synth_fbo);
-		/*if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
-		std::cout << "Framebuffer creation failed!!" << std::endl;
-		return;
-		}*/
-
-		unsigned int synth_rbo; //We need depth & stencil testing, so we need to make a render buffer for it.
-		glGenRenderbuffers(1, &synth_rbo);
-		glBindRenderbuffer(GL_RENDERBUFFER, synth_rbo);
-		glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, vWidth, vHeight);
-		glBindRenderbuffer(GL_RENDERBUFFER, 0);
-
-		glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, synth_rbo);
-
-		if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
-			std::cout << "ERROR::FRAMEBUFFER:: Framebuffer is not complete!" << std::endl;
-
-		glm::mat4 projectionMatrix = glm::perspective(glm::radians(getExtFOV()), float(vWidth) / vHeight, 0.1f, 100.0f);
-		glm::mat4 MVP;
-
-		glViewport(0, 0, vWidth, vHeight); //Render on the camera
-
-		Shader synthShader("shaders/DepthSynthesizer.vertexshader", "shaders/DepthSynthesizer.fragmentshader");
-		unsigned int matrixId = synthShader.GetUniformLocation("MVP");
-		synthShader.Bind();
-
-		vBuffer.Bind();
-		cBuffer.Bind();
-		nBuffer.Bind();
-		for (int i = 0; i < vs.getViews().size(); i++) {
-
-			glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, vs.getView(i).getDepthMap().getTexture().getId(), 0);
-			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-			MVP = projectionMatrix * vs.getView(i).getViewMatrix() * glm::mat4(1);
-
-			vs.getView(i).getDepthMap().setMaxDepth(20.f);
-			vs.getView(i).getDepthMap().setMinDepth(0.1f);
-			glUniformMatrix4fv(matrixId, 1, GL_FALSE, &MVP[0][0]);
-
-			glDrawArrays(GL_POINTS, 0, vBuffer.GetLength());
-
-		}
-		vBuffer.Unbind();
-		cBuffer.Unbind();
-		nBuffer.Unbind();
-
-		glBindFramebuffer(GL_FRAMEBUFFER, 0);
-
-		glDeleteFramebuffers(1, &synth_fbo);
-		glDeleteRenderbuffers(1, &synth_rbo);
-	}
-
-
-	//Generate synthetic depth maps using opengl depth texturesTODO
+	//Generate synthetic depth maps using opengl depth textures
 	void synthesizeRelevantDepths() {
 		glPointSize(25);
 		int vWidth = vs.getView(0).getTexture().getWidth();
@@ -315,6 +418,8 @@ class Application {
 		cBuffer.Bind();
 		nBuffer.Bind();
 		for (int i = 0; i < VIEWNUM; i++) {
+			unsigned int deletes[] = { relevantDepthTextures[i].getId(), relevantConfidenceTextures[i].getId() };
+			glDeleteTextures(2, &deletes[0]);
 			relevantDepthTextures[i] = Texture(vWidth, vHeight, GL_DEPTH_COMPONENT16, GL_DEPTH_COMPONENT, NULL);
 			glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, relevantDepthTextures[i].getId(), 0);
 			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -323,6 +428,9 @@ class Application {
 			glUniformMatrix4fv(matrixId, 1, GL_FALSE, &MVP[0][0]);
 
 			glDrawArrays(GL_POINTS, 0, vBuffer.GetLength());
+
+			Texture tmp = convertDepthMap(relevantViews[i].getDepthMap().getTexture());
+			relevantConfidenceTextures[i] = synthesizeConfidenceMap(tmp);
 		}
 		vBuffer.Unbind();
 		cBuffer.Unbind();
@@ -335,21 +443,88 @@ class Application {
 	}
 
 
-	//Creates the depth map confidence map for one view
-	Texture* synthesizeConfidenceMap(View view, Shader kernelShader) {
-		kernelShader.Bind();
-		Texture colmapDepthTexture = view.getDepthMap().getTexture();
-		Texture* confidenceTexture = new Texture(colmapDepthTexture.getWidth(), colmapDepthTexture.getHeight(), GL_RGBA32F, GL_RGBA, nullptr); //Should it be RGBA32F?
-		
-		// A discrete laplacian kernel.
-		glm::mat3 kernel(0,1,0,1,-4,1,0,1,0);
-		glUniformMatrix3fv(kernelShader.GetUniformLocation("convolutionMatrix"), 1, GL_FALSE, &kernel[0][0]);
-		//TODO: INSERT FROM TEXTURE HERE
+
+	// Converts a colmap depth texture into a linear depth texture
+	Texture convertDepthMap(Texture colmapDepthTexture) {
+		Texture resTexture = Texture(colmapDepthTexture.getWidth(), colmapDepthTexture.getHeight(), GL_RGBA32F, GL_RGBA, nullptr);
+
+		std::cout << "Converting depthmap texture" << std::endl;
+
 		glActiveTexture(GL_TEXTURE0);
 		glBindTexture(GL_TEXTURE_2D, colmapDepthTexture.getId());
+		glUniform1i(convShader.GetUniformLocation("fromTex"), 0);
+
+		convShader.compute(resTexture.getWidth(), resTexture.getHeight(), 1, resTexture);
+		return resTexture;
+	}
+
+	//Creates the depth map confidence map for one view
+	// Use the colmap depth texture converted
+	Texture synthesizeConfidenceMap(Texture depthTexture) {
+		kernelShader.Bind();
+		Texture confidenceTexture = Texture(depthTexture.getWidth()/4, depthTexture.getHeight()/4, GL_RGBA32F, GL_RGBA, nullptr); //Should it be RGBA32F?
+
+		std::cout << "Generating confidence texture of width " << confidenceTexture.getWidth() << " and height " << confidenceTexture.getHeight() << std::endl;
+
+		// A discrete laplacian kernel.
+		glm::mat3 kernel{ 0,1,0,1,-4,1,0,1,0 };
+		glUniformMatrix3fv(kernelShader.GetUniformLocation("convolutionMatrix"), 1, GL_FALSE, &kernel[0][0]);
+
+		glActiveTexture(GL_TEXTURE0);
+		glBindTexture(GL_TEXTURE_2D, depthTexture.getId());
+		glUniform1i(kernelShader.GetUniformLocation("fromTex"), 0);
+		//glBindImageTexture(1, colmapDepthTexture.getId(), 0, GL_FALSE, 0, GL_READ_ONLY, GL_RGBA);
+
+		glUniform1f(kernelShader.GetUniformLocation("xratio"), 1.f / confidenceTexture.getWidth());
+		glUniform1f(kernelShader.GetUniformLocation("yratio"), 1.f / confidenceTexture.getHeight());
+
+		kernelShader.compute(confidenceTexture.getWidth(), confidenceTexture.getHeight(), 1, confidenceTexture);
+
+		Texture tmpTexture = Texture(confidenceTexture.getWidth(), confidenceTexture.getHeight(), GL_RGBA32F, GL_RGBA, nullptr);
+
+
+		//Gaussian smoothing.
+
+		gaussShader.Bind();
+
+		glActiveTexture(GL_TEXTURE0);
+		glBindTexture(GL_TEXTURE_2D, confidenceTexture.getId());
 		glUniform1i(kernelShader.GetUniformLocation("fromTex"), 0);
 
-		kernelShader.compute(confidenceTexture->getWidth(), confidenceTexture->getHeight(), 1, *confidenceTexture);
+		glUniform1f(gaussShader.GetUniformLocation("xratio"), 1.f / confidenceTexture.getWidth());
+		glUniform1f(gaussShader.GetUniformLocation("yratio"), 0);
+
+		gaussShader.compute(confidenceTexture.getWidth(), confidenceTexture.getHeight(), 1, tmpTexture);
+
+		glActiveTexture(GL_TEXTURE0);
+		glBindTexture(GL_TEXTURE_2D, tmpTexture.getId());
+		glUniform1i(kernelShader.GetUniformLocation("fromTex"), 0);
+
+		glUniform1f(gaussShader.GetUniformLocation("xratio"), 0);
+		glUniform1f(gaussShader.GetUniformLocation("yratio"), 1.f / confidenceTexture.getHeight());
+
+		gaussShader.compute(confidenceTexture.getWidth(), confidenceTexture.getHeight(), 1, confidenceTexture);
+
+		//Smoothing, maybe it should be done with a bigger kernel or smth.
+
+		/*kernel = glm::mat3{ 1/9., 1/9., 1/9., 1/9., 1/9., 1/9., 1/9., 1/9., 1/9. };
+		glUniformMatrix3fv(kernelShader.GetUniformLocation("convolutionMatrix"), 1, GL_FALSE, &kernel[0][0]);
+
+		glActiveTexture(GL_TEXTURE0);
+		glBindTexture(GL_TEXTURE_2D, confidenceTexture.getId());
+		glUniform1i(kernelShader.GetUniformLocation("fromTex"), 0);
+
+		kernelShader.compute(confidenceTexture.getWidth(), confidenceTexture.getHeight(), 1, depthTexture);
+
+		glActiveTexture(GL_TEXTURE0);
+		glBindTexture(GL_TEXTURE_2D, depthTexture.getId());
+		glUniform1i(kernelShader.GetUniformLocation("fromTex"), 0);
+
+		kernelShader.compute(confidenceTexture.getWidth(), confidenceTexture.getHeight(), 1, confidenceTexture);*/
+
+		unsigned int ctid[] = { depthTexture.getId(), tmpTexture.getId() };
+		glDeleteTextures(2, &ctid[0]);
+
 		return confidenceTexture;
 	}
 
@@ -358,14 +533,21 @@ public:
 	int width = 1000, height = 1000;
 	unsigned int textureSlots[5] = { GL_TEXTURE1, GL_TEXTURE2, GL_TEXTURE3, GL_TEXTURE4, GL_TEXTURE5 };
 	unsigned int depthTextureSlots[5] = { GL_TEXTURE6, GL_TEXTURE7, GL_TEXTURE8, GL_TEXTURE9, GL_TEXTURE10 };
+	unsigned int confidenceTextureSlots[5] = { GL_TEXTURE11, GL_TEXTURE12, GL_TEXTURE13, GL_TEXTURE14, GL_TEXTURE15 };
 	View relevantViews[VIEWNUM];
 	GLFWwindow* window;
 	Viewset vs;
 	//Buffers for vertices, normals, and colors
 	Buffer vBuffer, nBuffer, cBuffer;
+	//Buffers for cameras
+	Buffer v2Buffer, n2Buffer, c2Buffer;
 	bool depthsSynthesized = false;
 	Texture relevantDepthTextures[VIEWNUM];
+	Texture relevantConfidenceTextures[VIEWNUM];
 	float clearColor[3];
+	Shader convShader, kernelShader, gaussShader, visualShader, visualDepthShader;
+	Shader* activeShader;
+	PointCloud* pc;
 
 	Application() {
 
@@ -391,15 +573,23 @@ public:
 		glGetIntegerv(GL_MAX_COMPUTE_WORK_GROUP_INVOCATIONS, &work_grp_invocations);
 		std::cout << "Work group invocations: " << work_grp_invocations << std::endl;
 
-		Shader colmapDepthmapConvShader("shaders/compute/ColmapDepthmapConverter.computeshader");
-		colmapDepthmapConvShader.CreateUniformLocation("fromTex");
-		colmapDepthmapConvShader.CreateUniformLocation("minDepth");
-		colmapDepthmapConvShader.CreateUniformLocation("maxDepth");
+		convShader = Shader("shaders/compute/ColmapDepthmapConverter.computeshader");
+		convShader.CreateUniformLocation("fromTex");
+		convShader.CreateUniformLocation("minDepth");
+		convShader.CreateUniformLocation("maxDepth");
 
 		//Create the kernel shader. That file should probably be renamed
-		Shader computeShader("shaders/compute/DepthMapComputer.computeshader");
-		computeShader.CreateUniformLocation("fromTex");
-		computeShader.CreateUniformLocation("convolutionMatrix");
+		kernelShader = Shader("shaders/compute/DepthMapComputer.computeshader");
+		kernelShader.CreateUniformLocation("fromTex");
+		kernelShader.CreateUniformLocation("convolutionMatrix");
+		kernelShader.CreateUniformLocation("xratio");
+		kernelShader.CreateUniformLocation("yratio");
+
+		//Create the kernel shader. That file should probably be renamed
+		gaussShader = Shader("shaders/compute/OneWayGaussianBlur.computeshader");
+		kernelShader.CreateUniformLocation("fromTex");
+		kernelShader.CreateUniformLocation("xratio");
+		kernelShader.CreateUniformLocation("yratio");
 
 
 		std::cout << "making testview! " << std::endl;
@@ -410,11 +600,16 @@ public:
 		vs = Viewset("gerrardview");
 
 		//Time to test the depthmap conversion compute shader
-		Texture* ctex = synthesizeConfidenceMap(vs.getView(0), computeShader);
+
+		Texture resTexture = convertDepthMap(vs.getView(0).getDepthMap().getTexture());
+		Texture confidenceTexture = synthesizeConfidenceMap(resTexture);
+
 		std::cout << "Synthesized depth map confidence map" << std::endl;
 
 		std::cout << "Now reading object" << std::endl;
+#ifndef NO_POINTS
 		happly::PLYData p = readPly("gerrardview/object.ply", 1);
+#endif
 #endif
 		std::cout << vs.getViews()[0].getPosition()[0] << ", " << vs.getViews()[0].getPosition()[1] << "," << vs.getViews()[0].getPosition()[2] << std::endl;
 #ifdef MULTIPLE_VIEWS
@@ -425,11 +620,12 @@ public:
 		relevantViews[4] = vs.getViews()[4];
 #endif
 
-		PointCloud* pc = p.pc;
+#ifndef NO_POINTS
+		pc = p.pc;
 		//pc->createQuadVertexPositions();
 		std::cout << "Points: " << p.pc->getLength() << std::endl;
 		glClearColor(pc->avgColor[0], pc->avgColor[1], pc->avgColor[2], 1);
-
+#endif
 		//SURFEL STRIPPING SEEMS UNFIT TO THE PROBLEM. I'LL TRY IMPLEMENTING IT ANYWAY, MAYBE
 		//Octree oc(pc->vertexPositions, pc->realVertexColors, pc->vertexNormals, pc->getLength());
 
@@ -465,7 +661,7 @@ public:
 			return -1;
 #endif
 
-		
+#ifndef NO_POINTS
 		// Let's make a vertex buffer!
 		
 		vBuffer = Buffer(sizeof(float)*3, pc->getLength(), pc->vertexPositions, 0);
@@ -477,7 +673,7 @@ public:
 
 		nBuffer = Buffer(sizeof(float) * 3, pc->getLength(), pc->vertexNormals, 2);
 		nBuffer.Bind();
-
+#endif
 
 		// TEMPORARY FOR TESTING
 		int vsize = vs.getViews().size();
@@ -492,14 +688,14 @@ public:
 			viewLocs[i * 3 + 2] = v.getPosition()[2];
 		}
 
-		Buffer v2Buffer(sizeof(float) * 3, vsize, viewLocs, 0);
+		v2Buffer = Buffer(sizeof(float) * 3, vsize, viewLocs, 0);
 		v2Buffer.Bind();
 
 		// And a color buffer!
-		Buffer c2Buffer(sizeof(float) * 3, vsize, viewCols, 1);
+		v2Buffer = Buffer(sizeof(float) * 3, vsize, viewCols, 1);
 		c2Buffer.Bind();
 
-		Buffer n2Buffer(sizeof(float) * 3, vsize, viewNs, 2);
+		v2Buffer = Buffer(sizeof(float) * 3, vsize, viewNs, 2);
 		n2Buffer.Bind();
 
 
@@ -520,14 +716,14 @@ public:
 
 #ifdef SIMPLE
 #ifdef NORMALS
-		Shader visualShader("shaders/NormalVertexShader.vertexshader", "shaders/NormalFragmentShader.fragmentshader");
+		visualShader = Shader("shaders/NormalVertexShader.vertexshader", "shaders/NormalFragmentShader.fragmentshader");
 #else
-		Shader visualShader("shaders/SimpleVertexShader.vertexshader", "shaders/SimpleFragmentShader.fragmentshader");
+		visualShader = Shader("shaders/SimpleVertexShader.vertexshader", "shaders/SimpleFragmentShader.fragmentshader");
 #endif
 #else	
 #ifdef MULTIPLE_VIEWS
-		Shader visualShader("shaders/ViewDepthlessVertexShader.vertexshader", "shaders/ViewFragmentShader.fragmentshader");
-		Shader visualDepthShader("shaders/ViewVertexShader.vertexShader", "shaders/ViewFragmentShader.fragmentshader");
+		visualShader = Shader("shaders/ViewDepthlessVertexShader.vertexshader", "shaders/ViewFragmentShader.fragmentshader");
+		visualDepthShader = Shader("shaders/ViewVertexShader.vertexShader", "shaders/ViewFragmentShader.fragmentshader");
 #else
 		Shader visualShader("shaders/TestInterpVertexShader.vertexshader", "shaders/TestInterpFragmentShader.fragmentshader");
 		unsigned int ExternalTex2ID = glGetUniformLocation(visualShader.getId(), "externalTexture2");
@@ -577,225 +773,21 @@ public:
 		/* Loop until the user closes the window */
 		while (!glfwWindowShouldClose(window))
 		{
-#ifdef SIMPLE
-			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-			visualShader.Bind();
 
-			computeMatricesFromInputs(window);
-			glm::mat4 ProjectionMatrix = getProjectionMatrix();
-			glm::mat4 ViewMatrix = getViewMatrix();
-			glm::mat4 ModelMatrix = glm::mat4(1.0);
-			glm::mat4 MVP = ProjectionMatrix * ViewMatrix * ModelMatrix;
+			renderPoints();
 
-			glUniformMatrix4fv(MatrixID, 1, GL_FALSE, &MVP[0][0]);
+			//Drawing textures onto screen
 
-			vBuffer.Bind();
-			cBuffer.Bind();
-			nBuffer.Bind();
-
-			glDrawArrays(GL_POINTS, 0, pc->getLength());
-
-			vBuffer.Unbind();
-			cBuffer.Unbind();
-			nBuffer.Unbind();
-
-			/* Swap front and back buffers */
-			glfwSwapBuffers(window);
-
-			/* Poll for and process events */
-			glfwPollEvents();
-#else
-			computeMatricesFromInputs(window);
-
-
-			glm::vec3 Position = getPosition();
-			glm::vec2 Angles = getAngles();
-			glm::vec3 Direction = getDirection();
-
-			View relevantView = ChooseView(Position, Direction, vs);
-
-			glm::mat4 ProjectionMatrix = getProjectionMatrix();
-			glm::mat4 ViewMatrix = getViewMatrix();
-			if (glfwGetKey(window, GLFW_KEY_C) == GLFW_PRESS) {
-				ViewMatrix = relevantView.getViewMatrix();
+			drawTextureOnScreen(relevantViews[0].getTexture().getId(), 0, 0, width / 4, height / 4, debugShader, dqBuffer, debugTexId);
+			if (this->depthsSynthesized) {
+				drawTextureOnScreen(relevantDepthTextures[0].getId(), width/4, 0, width / 4, height / 4, debugShader, dqBuffer, debugTexId);
+				drawTextureOnScreen(relevantConfidenceTextures[0].getId(), width/2, 0, width / 4, height / 4, debugShader, dqBuffer, debugTexId);
 			}
-			glm::mat4 ModelMatrix = glm::mat4(1.0);
-			glm::mat4 MVP = ProjectionMatrix * ViewMatrix * ModelMatrix;
-
-#ifdef MULTIPLE_VIEWS
-			glm::mat4 ExternalViewMatrices[5];
-			glm::mat4 ExternalProjectionMatrix = glm::perspective(glm::radians(getExtFOV()), 5616/3744.f, 0.1f, 100.0f);
-			glm::mat4 ExternalMVPs[5];
-
-			glm::vec3 ExternalViewDirs[5];
-			glm::vec3 ExternalViewLocs[5];
-
-#ifdef UPDATE_VIEWS_BASED_ON_LOCATION
-			chooseViews(Position, Direction, vs);
-#endif
-			if (glfwGetKey(window, GLFW_KEY_G) == GLFW_PRESS) {
-				synthesizeRelevantDepths();
-				depthsSynthesized = true;
-			}
-
-			for (int i = 0; i < 5; i++) {
-				ExternalViewMatrices[i] = relevantViews[i].getViewMatrix();
-				ExternalMVPs[i] = ExternalProjectionMatrix * ExternalViewMatrices[i] * ModelMatrix;
-				
-				ExternalViewDirs[i] = relevantViews[i].getDirection();
-				ExternalViewLocs[i] = relevantViews[i].getPosition();
-			}
-#else
-			glm::mat4 ExternalViewMatrix = relevantView.getViewMatrix();
-			glm::mat4 ExternalProjectionMatrix = glm::perspective(glm::radians(67.f), 3 / 4.f, 0.1f, 100.0f);
-			glm::mat4 ExternalMVP = ExternalProjectionMatrix * ExternalViewMatrix * ModelMatrix;
-
-			glm::mat4 ExternalViewMatrix2 = vs.getViews()[1].getViewMatrix();
-			glm::mat4 ExternalProjectionMatrix2 = glm::perspective(glm::radians(67.f), 3 / 4.f, 0.1f, 100.0f);
-			glm::mat4 ExternalMVP2 = ExternalProjectionMatrix2 * ExternalViewMatrix2 * ModelMatrix;
-#endif
-
-			std::stringstream ss;
-			//ss << "(" << Position[0] << "," << Position[1] << "," << Position[2] << ") (" << Angles[0] << "," << Angles[1] << ")";
-			ss << "kdt " << getkdt() << ", kd" << getkd() << ", kt" << getkt() << ", kc" << getkc();
-
-			glfwSetWindowTitle(window, ss.str().c_str());
-
-/*			Renders depth unto framebuffer texture.
-
-
-			glBindFramebuffer(GL_FRAMEBUFFER, depthRenderbuffer);
-			glViewport(0, 0, width, height); //Render on the entire framebuffer.
-
-			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-			depthShader.Bind();
-
-			vBuffer.Bind();
-			cBuffer.Bind();
-			nBuffer.Bind();
-
-			glUniformMatrix4fv(depthMatrixId, 1, GL_FALSE, &MVP[0][0]);
-
-			glDrawArrays(GL_POINTS, 0, pc->getLength());
-
-			vBuffer.Unbind();
-			cBuffer.Unbind();
-			nBuffer.Unbind();*/
-
-			if (depthsSynthesized)
-				activeShader = &visualDepthShader;
-			else
-				activeShader = &visualShader;
-
-
-			//Time to render to screen again
-			glBindFramebuffer(GL_FRAMEBUFFER, 0);
-			glViewport(0, 0, width, height);
-
-			glPointSize(getPointSize());
-
-			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-			//Put the visual shader back
-			activeShader->Bind();
-
-			vBuffer.Bind();
-			cBuffer.Bind();
-			nBuffer.Bind();
-
-			glUniformMatrix4fv(activeShader->GetUniformLocation("MVP"), 1, GL_FALSE, &MVP[0][0]);
-
-#ifdef MULTIPLE_VIEWS
-			glUniformMatrix4fv(activeShader->GetUniformLocation("viewMVP"), 5, GL_FALSE, &ExternalMVPs[0][0][0]);
-			glUniform3fv(activeShader->GetUniformLocation("viewDir"), 5, &ExternalViewDirs[0][0]);
-			glUniform3fv(activeShader->GetUniformLocation("viewLoc"), 5, &ExternalViewLocs[0][0]);
-
-			glUniform3fv(activeShader->GetUniformLocation("camDir"), 1, &Direction[0]);
-			glUniform3fv(activeShader->GetUniformLocation("camLoc"), 1, &Position[0]);
-			float minDepths[5];
-			float maxDepths[5];
-			for (int i = 0; i < 5; i++) {
-				glActiveTexture(textureSlots[i]);
-				glBindTexture(GL_TEXTURE_2D, relevantViews[i].getTexture().getId());
-				
-
-				glActiveTexture(depthTextureSlots[i]);
-				glBindTexture(GL_TEXTURE_2D, relevantDepthTextures[i].getId());
-				//glBindTexture(GL_TEXTURE_2D, relevantViews[i].getDepthMap().getTexture().getId());
-				minDepths[i] = relevantViews[i].getDepthMap().getMinDepth();
-				maxDepths[i] = relevantViews[i].getDepthMap().getMaxDepth();
-			}
-
-			int slotRefs[] = { 1,2,3,4,5 };
-			glUniform1iv(activeShader->GetUniformLocation("externalTexture"), 5, &slotRefs[0]);
-
-			if (depthsSynthesized) {
-				int depthSlotRefs[] = { 6,7,8,9,10 };
-				glUniform1iv(activeShader->GetUniformLocation("depthTexture"), 5, &depthSlotRefs[0]);
-				glUniform1fv(activeShader->GetUniformLocation("minDepth"), 5, &minDepths[0]);
-				glUniform1fv(activeShader->GetUniformLocation("maxDepth"), 5, &maxDepths[0]);
-
-				glUniform1f(activeShader->GetUniformLocation("kdt"), getkdt());
-				glUniform1f(activeShader->GetUniformLocation("kd"), getkd());
-				glUniform1f(activeShader->GetUniformLocation("kt"), getkt());
-				glUniform1f(activeShader->GetUniformLocation("kc"), getkc()); 
-			}
-#else
-			glUniformMatrix4fv(ExternalMatrixID, 1, GL_FALSE, &ExternalMVP[0][0]);
-			glUniformMatrix4fv(ExternalMatrix2ID, 1, GL_FALSE, &ExternalMVP2[0][0]);
-			glm::vec3 vector(1, 0, 0);
-			glm::vec3 vector2(0.0, 1, 1);
-			glUniform3fv(ExternalViewDirID, 1, &vector[0]);
-			glUniform3fv(ExternalViewDir2ID, 1, &vector2[0]);
-			glActiveTexture(GL_TEXTURE1);
-			glBindTexture(GL_TEXTURE_2D, relevantView.getTexture().getId());
-			glUniform1i(ExternalTexID, 1);
-			glActiveTexture(GL_TEXTURE2);
-			glBindTexture(GL_TEXTURE_2D, vs.getViews()[1].getTexture().getId());
-			glUniform1i(ExternalTex2ID, 2);
-
-#endif
-			// This was used to input the depth as seen from the camera
-			//glActiveTexture(GL_TEXTURE0);
-			//glBindTexture(GL_TEXTURE_2D, depthTexture);
-			//glUniform1i(DepthTexID, 0);
-
+			//drawTextureOnScreen(vs.getView(0).getDepthMap().resTexture.getId(), width/4, 0, width / 4, height / 4, debugShader, dqBuffer, debugTexId);
+			//drawTextureOnScreen(vs.getView(0).getDepthMap().getConfidenceTexture().getId(), width / 2, 0, width / 4, height / 4, debugShader, dqBuffer, debugTexId);
 			
-
-			//I'm not sure this is how I want to do it.
-			glDrawArrays(GL_POINTS, 0, pc->getLength());
-
-			vBuffer.Unbind();
-			cBuffer.Unbind();
-			nBuffer.Unbind();
-
-
-			//  UNBIND TO RENDER CAMERAS
-			glPointSize(72);
-
-
-			v2Buffer.Bind();
-			c2Buffer.Bind();
-			n2Buffer.Bind();
-			glDrawArrays(GL_POINTS, 0, vsize);
-			v2Buffer.Unbind();
-			c2Buffer.Unbind();
-			n2Buffer.Unbind();
-
-			glViewport(width/2, 0, width / 2, height / 2);
-
-			debugShader.Bind();
-
-			glActiveTexture(GL_TEXTURE0);
-			glBindTexture(GL_TEXTURE_2D, ctex->getId());
-			glUniform1i(debugTexId, 0);
-
-			dqBuffer.Bind();
-
-			glDrawArrays(GL_TRIANGLES, 0, 6);
-
-			dqBuffer.Unbind();
+			//drawTextureOnScreen(resTexture.getId(), width / 4, height/4, width / 4, height / 4, debugShader, dqBuffer, debugTexId);
+			//drawTextureOnScreen(confidenceTexture.getId(), width / 2, height/4, width / 4, height / 4, debugShader, dqBuffer, debugTexId);
 
 			/*if (depthsSynthesized) {
 				debugShader.Bind();
@@ -822,42 +814,27 @@ public:
 		glfwTerminate();
 		return 0;
 	}
+
+	void drawTextureOnScreen(unsigned int texId, int x, int y, int width, int height, Shader& debugShader, Buffer& dqBuffer, unsigned int debugTexId) {
+
+		glViewport(x, y, width, height);
+
+		debugShader.Bind();
+
+		glActiveTexture(GL_TEXTURE0);
+		glBindTexture(GL_TEXTURE_2D, texId);
+		glUniform1i(debugTexId, 0);
+
+		dqBuffer.Bind();
+
+		glDrawArrays(GL_TRIANGLES, 0, 6);
+
+		dqBuffer.Unbind();
+	}
+
 };
 
 int main(void) {
-	float* expoints = new float[8 * 3]{
-
-		0.0, 0.0, 0.0,
-		1.0, 0.0, 0.0,
-		0.0, 1.0, 0.0,
-		1.0, 1.0, 0.0,
-		0.0, 0.0, 1.0,
-		1.0, 0.0, 1.0,
-		0.0, 1.0, 1.0,
-		1.0, 1.0, 1.0
-	};
-	float* cols = new float[8 * 3]{
-		0.0, 0.0, 0.0,
-		1.0, 0.0, 0.0,
-		0.0, 1.0, 0.0,
-		1.0, 1.0, 0.0,
-		0.0, 0.0, 1.0,
-		1.0, 0.0, 1.0,
-		0.0, 1.0, 1.0,
-		1.0, 1.0, 1.0
-	};
-	float *norms = new float[8 * 3]{
-
-		0.0, 0.0, 0.0,
-		1.0, 0.0, 0.0,
-		0.0, 1.0, 0.0,
-		1.0, 1.0, 0.0,
-		0.0, 0.0, 1.0,
-		1.0, 0.0, 1.0,
-		0.0, 1.0, 1.0,
-		1.0, 1.0, 1.0
-	};
-	//Octree oc(expoints, cols, norms, 8);
 	
 	Application a;
 	return a.main();

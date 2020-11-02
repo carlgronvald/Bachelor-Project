@@ -1,7 +1,7 @@
 #version 430
 layout(local_size_x = 1, local_size_y=1) in;
 layout(rgba32f, binding=0) uniform image2D img_output;
-uniform readonly image2D fromTex;
+uniform sampler2D fromTex;
 
 uniform float maxDepth;
 uniform float minDepth;
@@ -12,10 +12,11 @@ float cameraValue(vec4 tex) {
 
 void main() {
 	ivec2 pixel_coords = ivec2(gl_GlobalInvocationID.xy);
-	vec4 pixel = imageLoad(fromTex, pixel_coords);
+	vec4 pixel = texture(fromTex, vec2(pixel_coords.x/2400.0, pixel_coords.y/1578.0));
 
 	float depth = cameraValue(pixel);
 	pixel = vec4(depth);
 
+	//imageStore(img_output, pixel_coords, vec4(1));
 	imageStore(img_output, pixel_coords, pixel);
 }

@@ -24,6 +24,8 @@ std::vector<std::pair<std::string, std::vector<float>>> readCsv(std::string file
 	// Create an input filestream
 	std::ifstream myFile(filename);
 
+	std::cout << filename << std::endl;
+
 	// Make sure the file is open
 	if (!myFile.is_open()) throw std::runtime_error("Could not open file");
 

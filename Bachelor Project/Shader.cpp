@@ -51,6 +51,10 @@ unsigned int CreateShader(const std::string& computeShader) {
 	return program;
 }
 
+Shader::Shader() {
+
+}
+
 Shader::Shader(const char* vertexShaderFile, const char* fragmentShaderFile)
 {
 	this->id = CreateShader(readFile(vertexShaderFile), readFile(fragmentShaderFile));

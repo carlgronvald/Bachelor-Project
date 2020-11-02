@@ -9,6 +9,7 @@ in float viewParts[5];
 uniform sampler2D externalTexture[5];
 uniform sampler2D depthTexture[5];
 
+
 out vec4 color;
 
 float near = 0.1;

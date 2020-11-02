@@ -1,0 +1,25 @@
+#version 430
+layout(local_size_x = 1, local_size_y=1) in;
+layout(rgba32f, binding=0) uniform image2D img_output;
+uniform sampler2D fromTex;
+uniform float xratio;
+uniform float yratio;
+
+float[] sgw = float[] {0.003, 0.048, 0.262, 0.415, 0.262, 0.048, 0.003};
+
+void main() {
+	ivec2 pixel_coords = ivec2(gl_GlobalInvocationID.xy);
+	
+	vec2 UV = vec2(pixel_coords.x*xratio, pixel_coords.y*yratio);
+	float ox = xratio;
+	float oy = yratio;
+
+	vec4 res = vec4(0);
+
+	for( int i=-3;i<=3;i++) {
+		res += texture(fromTex, UV+vec2(i*ox, i*oy))*sgw[i+3];
+	}
+
+
+	imageStore(img_output, pixel_coords, vec4(abs(res.x)));
+}

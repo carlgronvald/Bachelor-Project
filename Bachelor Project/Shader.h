@@ -9,6 +9,7 @@
 class Shader
 {
 public:
+	Shader();
 	Shader(const char* vertexShaderFile, const char* fragmentShaderFile);
 	Shader(const char* computeShaderFile);
 	~Shader();

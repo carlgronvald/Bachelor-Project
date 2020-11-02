@@ -20,6 +20,7 @@ uniform vec3 camDir;
 uniform sampler2D depthTexture[5];
 uniform float minDepth[5];
 uniform float maxDepth[5];
+uniform sampler2D confidenceTexture[5];
 
 //Proportionality constants for gaussian weights
 uniform float kdt;
@@ -71,7 +72,8 @@ void main() {
 	vec4 dxview,dyview;
 	vec4 viewPos;
 	vec2 dUVx,dUVy;
-	float d;
+	//Confidence and depth map distance
+	float c,d;
 
 	float totalViewPart = 0;
 	
@@ -87,10 +89,11 @@ void main() {
 		float x = acos(dot(viewDir[i],camDir));
 
 		d = abs(LinearizeDepth( texture(depthTexture[i], (viewPos.xy/viewPos.z+vec2(1))/2).x )*0.8 - viewPos.z); 
+		c = texture(confidenceTexture[i], (viewPos.xy/viewPos.z+vec2(1))/2).x;
 
 		//d = abs(cameraDepth( texture(depthTexture[i], (viewPos.xy/viewPos.z+vec2(1))/2), i ) - viewPos.z); 
 
-		viewParts[i] = clamp( weight(d2,x, 0)  - pow(  viewPos.x/viewPos.z*viewPos.x/viewPos.z, 64) - pow(viewPos.y/viewPos.z*viewPos.y/viewPos.z, 64)  - pow(d*2,64) ,0,1);
+		viewParts[i] = clamp( weight(d2,x, c)  - pow(  viewPos.x/viewPos.z*viewPos.x/viewPos.z, 64) - pow(viewPos.y/viewPos.z*viewPos.y/viewPos.z, 64)  - pow(d*2,64) - pow(c*kc,64) ,0,1);
 		totalViewPart += viewParts[i];
 		UVs[i] = ((viewPos.xy/viewPos.w)+vec2(1,1))/2;
 		dUV[i] = mat2(dUVx,dUVy)*100;
