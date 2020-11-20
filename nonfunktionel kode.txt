@@ -1,0 +1,226 @@
+
+Der er to funktioner og mit main loop i den her fil
+De to funktioner og main loopet er alle sammen i den samme klasse.
+
+
+    // Den her funktion giver alle tingene til shaderen og renderer scenen. Det er den, der bliver kaldt to gange, og den ene gang bliver confidence maps'ne sendt ordentligt, men den anden gang gør de ikke
+	void renderPoints(glm::mat4 MVP, glm::vec3 Position, glm::vec3 Direction, int width, int height) {
+
+		glm::mat4 ExternalViewMatrices[5];
+		glm::mat4 ExternalProjectionMatrix = glm::perspective(glm::radians(getExtFOV()), 5616 / 3744.f, 0.1f, 100.0f);
+		glm::mat4 ExternalMVPs[5];
+
+		glm::vec3 ExternalViewDirs[5];
+		glm::vec3 ExternalViewLocs[5];
+
+		chooseViews(Position, Direction, vs);
+		if (glfwGetKey(window, GLFW_KEY_G) == GLFW_PRESS) {
+			synthesizeRelevantDepths();
+			depthsSynthesized = true;
+		}
+
+		for (int i = 0; i < 5; i++) {
+			ExternalViewMatrices[i] = relevantViews[i].getViewMatrix();
+			ExternalMVPs[i] = ExternalProjectionMatrix * ExternalViewMatrices[i];
+
+			ExternalViewDirs[i] = relevantViews[i].getDirection();
+			ExternalViewLocs[i] = relevantViews[i].getPosition();
+		}
+
+        //Det her checker om depth maps'ne findes, og bruger kun shaderen med depth maps hvis de er. Problemet sker hvor de er synthesized.
+		if (depthsSynthesized)
+			activeShader = &visualDepthShader;
+		else
+			activeShader = &visualShader;
+
+
+
+		glPointSize(getPointSize());
+
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+		//Put the visual shader back
+		activeShader->Bind();
+
+		glUniform1i(activeShader->GetUniformLocation("screenWidth"), width);
+		glUniform1i(activeShader->GetUniformLocation("screenHeight"), height);
+
+		vBuffer.Bind();
+		cBuffer.Bind();
+		nBuffer.Bind();
+
+		glUniformMatrix4fv(activeShader->GetUniformLocation("MVP"), 1, GL_FALSE, &MVP[0][0]);
+
+		glUniformMatrix4fv(activeShader->GetUniformLocation("viewMVP"), 5, GL_FALSE, &ExternalMVPs[0][0][0]);
+		glUniform3fv(activeShader->GetUniformLocation("viewDir"), 5, &ExternalViewDirs[0][0]);
+		glUniform3fv(activeShader->GetUniformLocation("viewLoc"), 5, &ExternalViewLocs[0][0]);
+
+		glUniform3fv(activeShader->GetUniformLocation("camDir"), 1, &Direction[0]);
+		glUniform3fv(activeShader->GetUniformLocation("camLoc"), 1, &Position[0]);
+		float minDepths[5];
+		float maxDepths[5];
+		for (int i = 0; i < 5; i++) {
+			glActiveTexture(textureSlots[i]);
+			glBindTexture(GL_TEXTURE_2D, relevantViews[i].getTexture().getId());
+
+			minDepths[i] = relevantViews[i].getDepthMap().getMinDepth();
+			maxDepths[i] = relevantViews[i].getDepthMap().getMaxDepth();
+
+
+            //depthTextureSlots er en array med GL texture slots 6,7,8,9,10
+            //confidenceTextureSlots har GL texture slots 11,12,13,14,15
+			glActiveTexture(depthTextureSlots[i]);
+			glBindTexture(GL_TEXTURE_2D, relevantDepthTextures[i].getId());
+			glActiveTexture(confidenceTextureSlots[i]);
+			glBindTexture(GL_TEXTURE_2D, relevantConfidenceTextures[i].getId());
+			
+            //if (width != this->width) {
+			//	std::cout << "Confidence texture i: " << relevantConfidenceTextures[i].getId() << std::endl;
+			//}
+		}
+
+		int slotRefs[] = { 1,2,3,4,5 };
+		glUniform1iv(activeShader->GetUniformLocation("externalTexture"), 5, &slotRefs[0]);
+
+		if (depthsSynthesized) {
+			int depthSlotRefs[] = { 6,7,8,9,10 };
+			glUniform1iv(activeShader->GetUniformLocation("depthTexture"), 5, &depthSlotRefs[0]);
+			int confidenceSlotRefs[] = { 11,12,13,14,15 };
+			glUniform1iv(activeShader->GetUniformLocation("confidenceTexture"), 5, &confidenceSlotRefs[0]);
+			glUniform1fv(activeShader->GetUniformLocation("minDepth"), 5, &minDepths[0]);
+			glUniform1fv(activeShader->GetUniformLocation("maxDepth"), 5, &maxDepths[0]);
+
+			glUniform1f(activeShader->GetUniformLocation("kdt"), getkdt());
+			glUniform1f(activeShader->GetUniformLocation("kd"), getkd());
+			glUniform1f(activeShader->GetUniformLocation("kt"), getkt());
+			glUniform1f(activeShader->GetUniformLocation("kc"), getkc());
+		}
+		glDrawArrays(GL_POINTS, 0, pc->getLength());
+
+		vBuffer.Unbind();
+		cBuffer.Unbind();
+		nBuffer.Unbind();
+	}
+    
+    ...
+    
+    //Den anden funktion. Det er den her hvor renderPoints kaldet ikke succesfuldt sender confidence textures'ne med
+	//Tests how far off the current render is from the real image
+	//So, I need a way to draw onto a render buffer of the same size as the texture for optimal comparisons.
+	int CalculateImageDifference(Testview ts) {
+
+		if (screenTex.getId() != 0) {
+			unsigned int del = screenTex.getId();
+			glDeleteTextures(1, &del);
+		}
+
+		int vWidth = ts.getTexture().getWidth();
+		int vHeight = ts.getTexture().getHeight();
+
+		unsigned int synth_fbo;
+		glGenFramebuffers(1, &synth_fbo);
+		glBindFramebuffer(GL_FRAMEBUFFER, synth_fbo);
+
+		// The depth buffer
+		unsigned int depthRenderbuffer;
+		glGenRenderbuffers(1, &depthRenderbuffer);
+		glBindRenderbuffer(GL_RENDERBUFFER, depthRenderbuffer);
+		glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT, vWidth, vHeight);
+		glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, depthRenderbuffer);
+
+		screenTex = Texture(vWidth, vHeight, GL_RGB, GL_RGB, nullptr);
+		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, screenTex.getId(), 0);
+
+		if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
+			std::cout << "ERROR::FRAMEBUFFER:: Framebuffer is not complete!" << std::endl;
+
+		glm::mat4 projectionMatrix = glm::perspective(glm::radians(getExtFOV()), float(vWidth) / vHeight, 0.1f, 100.0f);
+		glm::mat4 MVP;
+		MVP = projectionMatrix * ts.getViewMatrix() * glm::mat4(1);
+
+		glViewport(0, 0, vWidth, vHeight); //Render on the camera
+		std::cout << "x,y,z " << ts.getPosition().x << "," << ts.getPosition().y << "," << ts.getPosition().z << std::endl;
+		std::cout << "ts dir " << ts.getDirection().x << "," << ts.getDirection().y << "," << ts.getDirection().z << std::endl;
+		std::cout << "self dir " << getDirection().x << "," << getDirection().y << "," << getDirection().z << std::endl;
+
+        //Efter det følgende renderPoints kald vil screenTex være blevet tegnet på, men det, der er tegnet, er så uden 
+		renderPoints(MVP, ts.getPosition(), ts.getDirection(), vWidth, vHeight);
+		unsigned char* data = new unsigned char[vWidth*vHeight * 3];
+		glActiveTexture(screenTex.getId());
+		glReadPixels(0, 0, vWidth, vHeight, GL_RGB, GL_UNSIGNED_BYTE, &data[0]);
+		unsigned char* refData = new unsigned char[vWidth*vHeight * 3];
+		glActiveTexture(ts.getTexture().getId());
+		glGetTexImage(GL_TEXTURE_2D, 0, GL_RGB, GL_RGB, refData);
+		
+		for (int i = 0; i < VIEWNUM; i++) {
+			std::cout << "Confidence texture i in this thing: " << relevantConfidenceTextures[i].getId();
+		}
+
+		int error = 0;
+		for (int i = 0; i < vWidth*vHeight * 3; i++) {
+			error += (refData[i] - data[i])*(refData[i]-data[i]);
+		}
+
+		delete[] data;
+		delete[] refData;
+		glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+		glDeleteFramebuffers(1, &synth_fbo);
+		glDeleteRenderbuffers(1, &depthRenderbuffer);
+		return error;
+	}
+    
+    ...
+        
+        //Og her er main loopet så. Det renderPoints kald der er her virker fint.
+        while (!glfwWindowShouldClose(window))
+            {
+                //Time to render to screen again
+                glBindFramebuffer(GL_FRAMEBUFFER, 0);
+                glViewport(0, 0, width, height);
+
+                if (glfwGetKey(window, GLFW_KEY_0) == GLFW_PRESS) {
+                    //Det er her funktionen hvori renderPoints ikke gider virke bliver kaldt
+                    CalculateImageDifference(vs.ts);
+                }
+                else {
+
+                    std::stringstream ss;
+                    glm::vec3 Position = getPosition();
+                    glm::vec2 Angles = getAngles();
+                    ss << "(" << Position[0] << "," << Position[1] << "," << Position[2] << ") (" << Angles[0] << "," << Angles[1] << ")";
+                    ss << "kdt " << getkdt() << ", kd" << getkd() << ", kt" << getkt() << ", kc" << getkc();
+
+                    glfwSetWindowTitle(window, ss.str().c_str());
+
+                    glm::mat4 ProjectionMatrix = getProjectionMatrix();
+                    glm::mat4 ViewMatrix = getViewMatrix();
+                    if (glfwGetKey(window, GLFW_KEY_C) == GLFW_PRESS) {
+                        ViewMatrix = relevantViews[0].getViewMatrix();
+                    }
+                    glm::mat4 ModelMatrix = glm::mat4(1.0);
+                    glm::mat4 MVP = ProjectionMatrix * ViewMatrix * ModelMatrix;
+
+                    renderPoints(MVP, getPosition(), getDirection(), width, height);
+
+                }
+                
+                //Drawing textures onto screen
+
+                drawTextureOnScreen(screenTex.getId(), 0, 0, width / 2, height / 2, debugShader, dqBuffer, debugTexId);
+
+                drawTextureOnScreen(relevantViews[0].getTexture().getId(), 0, 0, width / 4, height / 4, debugShader, dqBuffer, debugTexId);
+                if (this->depthsSynthesized) {
+                    drawTextureOnScreen(relevantDepthTextures[0].getId(), width/4, 0, width / 4, height / 4, debugShader, dqBuffer, debugTexId);
+                    drawTextureOnScreen(relevantConfidenceTextures[0].getId(), width/2, 0, width / 4, height / 4, debugShader, dqBuffer, debugTexId);
+                }
+                
+                glfwSwapBuffers(window);
+
+                /* Poll for and process events */
+                glfwPollEvents();
+            }
+
+            glfwTerminate();
+            return 0;
+        }

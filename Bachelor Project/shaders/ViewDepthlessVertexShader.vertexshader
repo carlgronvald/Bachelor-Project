@@ -16,14 +16,11 @@ uniform vec3 viewDir[5];
 uniform vec3 viewLoc[5];
 uniform vec3 camLoc;
 uniform vec3 camDir;
-
-float sigma2 = 1;
-
 float weight(float d2, float x) { //Returns the weighing of a view given squared distance and angle
 	return exp(-d2*x*x/2*1);
 }
 
-float near = 0.01; 
+float near = 0.1; 
 float far  = 100.0; 
   
 float LinearizeDepth(float depth) 

@@ -19,11 +19,11 @@ float horizontalAngle = PI;
 float verticalAngle = 0.0f;
 // Initial Field of View
 float initialFoV = 72.0f;
-float extFov = 53.5341f;
+float extFov = 53.0792;
 float speed = 1.5f; // 3 units / second
 float mouseSpeed = 0.005f;
 float pointSize = 8;
-float kdt=1, kd=1, kt=1, kc=1;
+float kdt = 0, kd = 0, kt = 10, kc = 100, sigma2 = 1,kdist=5;
 
 glm::mat4 getViewMatrix() {
 	return ViewMatrix;
@@ -62,8 +62,43 @@ float getkt() {
 float getkc() {
 	return kc;
 }
+float getsigma2() { // TODO: OBSOLETE
+	return sigma2;
+}
+float getkdist() {
+	return kdist;
+}
+void setExtFOV(float fov) {
+	extFov = fov;
+}
+void setPointSize(int ps) {
+	pointSize = ps;
+}
+void setkdt(float k) {
+	kdt = k;
+}
+void setkd(float k) {
+	kd = k;
+}
+void setkt(float k) {
+	kt = k;
+}
+void setkc(float k) {
+	kc = k;
+}
+void setsigma2(float k) { // TODO: OBSOLETE
+	sigma2 = k;
+}
+void setkdist(float k) {
+	kdist = k;
+}
+
+
+
+
 
 bool vDown = false;
+
 
 
 void computeMatricesFromInputs(GLFWwindow* window) {
@@ -138,10 +173,10 @@ void computeMatricesFromInputs(GLFWwindow* window) {
 	}
 
 	if (glfwGetKey(window, GLFW_KEY_V) == GLFW_PRESS) {
-		kdt += deltaTime * 0.1;
+		kdist += deltaTime * 5;
 	}
 	if (glfwGetKey(window, GLFW_KEY_B) == GLFW_PRESS) {
-		kdt -= deltaTime * 0.1;
+		kdist -= deltaTime * 5;
 	}
 
 	if (glfwGetKey(window, GLFW_KEY_N) == GLFW_PRESS) {

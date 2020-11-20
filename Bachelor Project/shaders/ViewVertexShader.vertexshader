@@ -27,12 +27,10 @@ uniform float kdt;
 uniform float kd;
 uniform float kt;
 uniform float kc;
-
-
-float sigma2 = 1;
+uniform float kdist;
 
 float weight(float d2, float x, float c) { //Returns the weighing of a view given squared distance, angle, and shadow map confidence
-	return exp(-d2*x*x*kdt - d2*kd - x*x*kt -c*c*kc);
+	return exp((-d2*x*x*kdt - d2*kd - x*x*kt - c*c*kc));
 }
 
 float cameraDepth(vec4 tex, int i) {
@@ -88,12 +86,13 @@ void main() {
 		float d2 = dot(viewLoc[i]-camLoc,viewLoc[i]-camLoc);
 		float x = acos(dot(viewDir[i],camDir));
 
-		d = abs(LinearizeDepth( texture(depthTexture[i], (viewPos.xy/viewPos.z+vec2(1))/2).x )*0.8 - viewPos.z); 
-		c = texture(confidenceTexture[i], (viewPos.xy/viewPos.z+vec2(1))/2).x;
+		d = abs(LinearizeDepth( texture(depthTexture[i], (viewPos.xy/viewPos.w+vec2(1))/2).x ) - viewPos.w*1.1); 
+		//d = abs(texture(depthTexture[i], (viewPos.xy/viewPos.w+vec2(1))/2).r-(viewPos.z/viewPos.w*0.5 + 0.5));
+		c = texture(confidenceTexture[i], (viewPos.xy/viewPos.w+vec2(1))/2).x;
 
 		//d = abs(cameraDepth( texture(depthTexture[i], (viewPos.xy/viewPos.z+vec2(1))/2), i ) - viewPos.z); 
 
-		viewParts[i] = clamp( weight(d2,x, c)  - pow(  viewPos.x/viewPos.z*viewPos.x/viewPos.z, 64) - pow(viewPos.y/viewPos.z*viewPos.y/viewPos.z, 64)  - pow(d*2,64) - pow(c*kc,64) ,0,1);
+		viewParts[i] = clamp( weight(d2,x, c)  - pow(  viewPos.x/viewPos.w*viewPos.x/viewPos.w, 64) - pow(viewPos.y/viewPos.w*viewPos.y/viewPos.w, 64)  - pow(d*kdist,64) ,0,1);
 		totalViewPart += viewParts[i];
 		UVs[i] = ((viewPos.xy/viewPos.w)+vec2(1,1))/2;
 		dUV[i] = mat2(dUVx,dUVy)*100;
@@ -102,23 +101,37 @@ void main() {
 	for(int i=0;i<5;i++) {
 		viewParts[i] = clamp(viewParts[i]/totalViewPart, 0, 1);
 	}
-
 	viewPos = viewMVP[0] * vec4(vertexPosition_modelspace, 1);
+	//viewParts[0] = (((viewPos.xy/viewPos.z+vec2(1))/4).x+((viewPos.xy/viewPos.z+vec2(1))/4).y);
+	//viewParts[1] = texture(confidenceTexture[0], (viewPos.xy/viewPos.z+vec2(1))/2).x;
+	d = abs(LinearizeDepth( texture(depthTexture[0], (viewPos.xy/viewPos.w+vec2(1))/2).r ) ); 
+	//viewParts[2] = abs(texture(depthTexture[0], (viewPos.xy/viewPos.w+vec2(1))/2).r-(viewPos.z/viewPos.w*0.50 + 0.5))*100;
+	//viewParts[0] = (LinearizeDepth(texture(depthTexture[0], (viewPos.xy/viewPos.w+vec2(1))/2).r))/5;
+	//viewParts[1] = viewPos.w/5;
+	//viewParts[2] = (viewParts[1]/viewParts[0]);
+
+	//viewParts[1] = clamp(viewPos.w/10, 0, 1);
+	//viewParts[4] = clamp(d/10,0,1);
+	/*
+	viewParts[0] = abs(LinearizeDepth( texture(depthTexture[0], (viewPos.xy/viewPos.z+vec2(1))/2).x )*0.8 - viewPos.z); 
+	viewPos = viewMVP[1] * vec4(vertexPosition_modelspace, 1);
+	viewParts[1] = abs(LinearizeDepth( texture(depthTexture[1], (viewPos.xy/viewPos.z+vec2(1))/2).x )*0.8 - viewPos.z); 
+	viewPos = viewMVP[2] * vec4(vertexPosition_modelspace, 1);
+	viewParts[2] = abs(LinearizeDepth( texture(depthTexture[2], (viewPos.xy/viewPos.z+vec2(1))/2).x )*0.8 - viewPos.z); */
 	//TESTING!!!!
-	d =abs( cameraDepth( texture(depthTexture[0], (viewPos.xy/viewPos.z+vec2(1))/2 ) , 0) - viewPos.z)/6;
+	//c = texture(confidenceTexture[0], (viewPos.xy/viewPos.z+vec2(1))/2).x;
+	//viewParts[0] = clamp(c,0,1);
+	//d = abs(LinearizeDepth( texture(depthTexture[0], (viewPos.xy/viewPos.z+vec2(1))/2).x )*0.8 - viewPos.z); 
+	//viewParts[1] = clamp(d,0,1);
 	//viewParts[0] = clamp((LinearizeDepth( texture(depthTexture[0], (viewPos.xy/viewPos.w+vec2(1))/2).x )*0.8 -viewPos.z),0,1);
 	//viewParts[1] = -clamp((LinearizeDepth( texture(depthTexture[0], (viewPos.xy/viewPos.w+vec2(1))/2).x )*0.8 -viewPos.z),-1,0);
 	//viewParts[1] = clamp(viewPos.z,0,1);
 	//viewParts[2] = clamp((LinearizeDepth( texture(depthTexture[0], (viewPos.xy/viewPos.w+vec2(1))/2).x )/8),0,1);
-	//viewParts[0] = 1;
-	//viewParts[1]=0;
-	//viewParts[2]=0;
-	//viewParts[3]=0;
-	//viewParts[4]=0;
 	vertexxy = (pos+vec2(1))/2;
 
 
 	vColor = color;
+	//gl_Position = viewPos;
 }
 
 

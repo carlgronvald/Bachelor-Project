@@ -50,3 +50,7 @@ glm::mat4 View::getViewMatrix() {
 DepthMap View::getDepthMap() {
 	return depthMap;
 }
+
+int View::getId() {
+	return id;
+}

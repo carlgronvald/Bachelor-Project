@@ -8,34 +8,40 @@ in float viewParts[5];
 
 uniform sampler2D externalTexture[5];
 uniform sampler2D depthTexture[5];
+uniform sampler2D colmapDepth[5];
 
+uniform int screenWidth;
+uniform int screenHeight;
 
 out vec4 color;
 
 float near = 0.1;
 float far = 100.0;
 
+float cameraDepth(vec4 tex, int i) {
+	return dot(tex, vec4(1,256,65536,16777216))/16777216.0*2;
+}
 
 void main() {
-	vec2 screenxy = vec2(gl_FragCoord.x / 1000, gl_FragCoord.y / 1000); //Fragment xy
+	vec2 screenxy = vec2(gl_FragCoord.x / screenWidth, gl_FragCoord.y / screenHeight); //Fragment xy
 
-	//color = vec3((screenxy-vertexxy),0);
 	vec4 tcolor = vec4(0);
-	//color = vec4(0,1,0,1);
 	float vt=0;
+
+	//float tdepth = 0;
 	for(int i=0;i<5;i++) {
 		tcolor += texture(externalTexture[i], dUV[i]*(screenxy-vertexxy)+UVs[i])*viewParts[i];
+		//tdepth += cameraDepth(texture(colmapDepth[i], dUV[i]*(screenxy-vertexxy)+UVs[i]), i)*viewParts[i];
 		vt += viewParts[i];
 	}
 
-	//color = vec4(clamp(viewParts[0],-1,1)/2+0.5,clamp(viewParts[1],-1,1)/2+0.5,clamp(viewParts[2],-1,1)/2+0.5,1);
-
 	vt = clamp(vt,0,1);
-	
-	color = (tcolor*vt + vec4(vColor,1)*(1.0-vt))*0.9 + vec4(vt,1-vt,vt,1)*0.1;
-	//color = vec4(0,viewParts[0],viewParts[1],1);
-	//color = vec4(vt,1-vt,vt,1);
-	//color = vec4( dot( texture(depthTexture[0], screz`enxy), vec4(1,256,65536,16777216))/16777216.0, 0,0,1);
+	tcolor.w = 1;
+	color = (tcolor*vt + vec4(vColor,1)*(1.0-vt))*1;
+	//color = vec4(0, 0, viewParts[2],1);
+
+	//color = (tcolor*vt + vec4(vColor,1)*(1.0-vt))*0.9*tdepth + vec4(vt, 1-vt, vt, 1)*0.1;
+	//color = (tcolor*vt + vec4(vColor,1)*(1.0-vt))*0.9 + vec4(vt,1-vt,vt,1)*0.1;
 	//color = vec4(abs(d-dd),0,0,1);
 	//color = vec4(abs(d));
 	//color = vec4(dUV[0][0][0], dUV[0][0][1], 1,1);

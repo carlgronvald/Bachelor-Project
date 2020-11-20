@@ -15,6 +15,7 @@ public:
 	glm::vec3 getDirection();
 	glm::mat3 getRotation();
 	glm::mat4 getViewMatrix();
+	int getId();
 
 	DepthMap getDepthMap();
 

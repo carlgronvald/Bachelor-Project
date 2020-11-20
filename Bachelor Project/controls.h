@@ -14,4 +14,14 @@ float getkdt();
 float getkd();
 float getkt();
 float getkc();
+float getsigma2();
+float getkdist();
+void setExtFOV(float fov);
+void setPointSize(int pointSize);
+void setkdt(float kdt);
+void setkd(float kd);
+void setkt(float kt);
+void setkc(float kc);
+void setsigma2(float sigma2);
+void setkdist(float kdist);
 #endif

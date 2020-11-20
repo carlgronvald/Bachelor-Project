@@ -1,9 +1,9 @@
 #version 330 core
 
-out float fragmentdepth;
+//out float fragmentdepth;
 //layout(location=0) out vec3 color;
 
 void main() {
-	fragmentdepth = gl_FragCoord.z;
+//	fragmentdepth = gl_FragCoord.z;
 //	color = vec3(0.5,0.5,0.5);
 }
