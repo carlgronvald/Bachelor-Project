@@ -1,9 +1,22 @@
 Dependencies/
 Debug/
 Bachelor Project/Debug/
-Bachelor Project/summer_house.ply
 Bachelor Project/Bachelor Project.vcxproj
 Bachelor Project/Bachelor Project.vcxproj.filters
 Bachelor Project/Bachelor Project.vcxproj.user
 .vs/
 Bachelor Project/glm/
+Bachelor Project/testview/
+Colmap_test/
+REGISTRY CHANGES.txt
+person-hall.zip
+person-hall/
+testdb.db
+gerrard-hall/
+Bachelor Project/screenshots/
+Bachelor Project/gerrardview/
+room/
+Colmap_tree/
+enc_temp_folder/
+Bachelor Project/treeview/
+Bachelor Project/testresults/
