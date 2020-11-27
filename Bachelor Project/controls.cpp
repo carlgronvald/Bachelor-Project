@@ -23,7 +23,7 @@ float extFov = 53.0792;
 float speed = 1.5f; // 3 units / second
 float mouseSpeed = 0.005f;
 float pointSize = 8;
-float kdt = 0, kd = 0, kt = 10, kc = 100, sigma2 = 1,kdist=5;
+float kdt = 0, kd = 0, kt = 10, kc = 346.667, sigma2 = 1,kdist=43.333;
 
 glm::mat4 getViewMatrix() {
 	return ViewMatrix;

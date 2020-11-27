@@ -13,11 +13,12 @@ public:
 
 	std::vector<View> getViews();
 	View getView(int id);
+	Testview getTestview(int id);
 	int size();
-	Testview ts;
 
 private:
 	unsigned int viewCount;
 	std::vector<View> views;
+	std::vector<Testview> testviews;
 
 };

@@ -4,15 +4,16 @@ layout(rgba32f, binding=0) uniform image2D img_output;
 uniform sampler2D fromTex;
 uniform float xratio;
 uniform float yratio;
+uniform float ox;
+uniform float oy;
 
-float[] sgw = float[] {0.003, 0.048, 0.262, 0.415, 0.262, 0.048, 0.003};
+float sgw[7] = float[7] (0.003, 0.048, 0.262, 0.415, 0.262, 0.048, 0.003);
 
 void main() {
 	ivec2 pixel_coords = ivec2(gl_GlobalInvocationID.xy);
-	
+	float xration = 1/600.f;
+	float yration = 1/400.f;
 	vec2 UV = vec2(pixel_coords.x*xratio, pixel_coords.y*yratio);
-	float ox = xratio;
-	float oy = yratio;
 
 	vec4 res = vec4(0);
 
@@ -20,6 +21,10 @@ void main() {
 		res += texture(fromTex, UV+vec2(i*ox, i*oy))*sgw[i+3];
 	}
 
+	//res = texture(fromTex, UV);
 
-	imageStore(img_output, pixel_coords, vec4(abs(res.x)));
+
+	//imageStore(img_output, pixel_coords, vec4(UV,0,1));
+	//imageStore(img_output, pixel_coords, vec4(xration*600));
+	imageStore(img_output, pixel_coords, res);
 }

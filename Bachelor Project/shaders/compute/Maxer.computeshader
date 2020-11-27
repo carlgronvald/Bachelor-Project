@@ -2,7 +2,6 @@
 layout(local_size_x = 1, local_size_y=1) in;
 layout(rgba32f, binding=0) uniform image2D img_output;
 uniform sampler2D fromTex;
-uniform mat3 convolutionMatrix;
 uniform float xratio;
 uniform float yratio;
 
@@ -23,10 +22,10 @@ void main() {
 	vec4 b = texture(fromTex, UV+vec2(0,-oy));
 	vec4 br = texture(fromTex, UV+vec2(ox,-oy));
 
-	vec4 res = tl*convolutionMatrix[0][0] + t*convolutionMatrix[0][1] + tr*convolutionMatrix[0][2]
-		+ cl*convolutionMatrix[1][0] + c*convolutionMatrix[1][1] + cr*convolutionMatrix[1][2]
-		+ bl*convolutionMatrix[2][0] + b*convolutionMatrix[2][1] + br*convolutionMatrix[2][2];
+	float res = max(max(tl.x,tr.x),t.x);
+	res = max(max(max(cl.x,cr.x),c.x),res);
+	res = max(max(max(bl.x,br.x),b.x),res);
 
 
-	imageStore(img_output, pixel_coords, vec4(vec3(abs(res.x)),1));
+	imageStore(img_output, pixel_coords, vec4(vec3(abs(res)),1));
 }

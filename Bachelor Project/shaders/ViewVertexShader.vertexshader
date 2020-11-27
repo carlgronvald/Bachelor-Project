@@ -21,6 +21,7 @@ uniform sampler2D depthTexture[5];
 uniform float minDepth[5];
 uniform float maxDepth[5];
 uniform sampler2D confidenceTexture[5];
+uniform sampler2D colmapDepth[5];
 
 //Proportionality constants for gaussian weights
 uniform float kdt;
@@ -104,7 +105,10 @@ void main() {
 	viewPos = viewMVP[0] * vec4(vertexPosition_modelspace, 1);
 	//viewParts[0] = (((viewPos.xy/viewPos.z+vec2(1))/4).x+((viewPos.xy/viewPos.z+vec2(1))/4).y);
 	//viewParts[1] = texture(confidenceTexture[0], (viewPos.xy/viewPos.z+vec2(1))/2).x;
-	d = abs(LinearizeDepth( texture(depthTexture[0], (viewPos.xy/viewPos.w+vec2(1))/2).r ) ); 
+	//d = camera( texture(colmapDepth[0], (viewPos.xy/viewPos.w+vec2(1))/2), 0); 
+	//viewParts[0] = d;
+	//viewParts[1] = abs(d-viewPos.w);
+	//viewParts[2] = d/viewPos.w-0.5;
 	//viewParts[2] = abs(texture(depthTexture[0], (viewPos.xy/viewPos.w+vec2(1))/2).r-(viewPos.z/viewPos.w*0.50 + 0.5))*100;
 	//viewParts[0] = (LinearizeDepth(texture(depthTexture[0], (viewPos.xy/viewPos.w+vec2(1))/2).r))/5;
 	//viewParts[1] = viewPos.w/5;

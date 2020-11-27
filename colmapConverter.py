@@ -17,8 +17,8 @@ image_file_output_path = "Colmap_tree\\dense\\0\\view.txt"
 image_folder = "Colmap_tree\\dense\\0\\images2\\"
 depth_folder = "Colmap_tree\\dense\\0\\stereo\\depth_maps2\\"
 
-rename_images = True
-rename_depth_maps = True
+rename_images = False
+rename_depth_maps = False
 
 def renameImage(imageName, ID):
     if rename_images:

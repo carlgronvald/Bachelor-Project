@@ -10,27 +10,18 @@ Viewset::Viewset() {
 Viewset::Viewset(std::string dir) {
 	std::vector < std::pair<std::string, std::vector<float>>> imageCsv = readCsv(dir + "/images.txt", '\t');
 	std::vector < std::pair<std::string, std::vector<float>>> depthCsv = readCsv(dir + "/depth_treated/depths.txt", '\t');
-	viewCount = imageCsv[0].second.size()-1;
+	viewCount = imageCsv[0].second.size();
 	views = std::vector<View>(viewCount);
+	//testviews = std::vector<Testview>(0);
 
 
 	
-	for (int i = 0; i <= viewCount; i++) {
-		//std::cout << "Making view " << (i + 1) << " with csv length " << imageCsv.size() << std::endl;
-
-		//std::cout << imageCsv[0].second[i] << ", " << depthCsv[2].second[i] << ", " << std::endl;
-		//std::cout << imageCsv[0].second[i] << imageCsv[1].second[i] << imageCsv[2].second[i] << imageCsv[3].second[i] << imageCsv[4].second[i] << imageCsv[5].second[i] << imageCsv[6].second[i] << imageCsv[7].second[i] << imageCsv[8].second[i] << depthCsv[1].second[i] << depthCsv[2].second[i] << std::endl;
+	for (int i = 0; i < viewCount; i++) {
+		//It's gonna make both a testview and a view each iteration. Pretty cool
+		//testviews[i] = Testview((int)imageCsv[0].second[i+viewCount], glm::quat(imageCsv[1].second[i + viewCount], imageCsv[2].second[i + viewCount], imageCsv[3].second[i + viewCount], imageCsv[4].second[i + viewCount]), glm::vec3(imageCsv[5].second[i + viewCount], imageCsv[6].second[i + viewCount], imageCsv[7].second[i + viewCount]), dir + "/view" + padnumber((int)imageCsv[8].second[i + viewCount]) + ".jpg");
+		views[i] = View((int)imageCsv[0].second[i], glm::quat(imageCsv[1].second[i], imageCsv[2].second[i], imageCsv[3].second[i], imageCsv[4].second[i]), glm::vec3(imageCsv[5].second[i], imageCsv[6].second[i], imageCsv[7].second[i]), dir + "/view" + padnumber((int)imageCsv[8].second[i]) + ".jpg",
+			dir + "/depth_treated/viewd" + padnumber((int)imageCsv[0].second[i]) + ".png", depthCsv[1].second[i], depthCsv[2].second[i]);
 		
-		
-		if (i == viewCount) { //TODO: TESTVIEW SHOULD BE FOUND IN SOME OTHER WAY
-			ts = Testview((int)imageCsv[0].second[i], glm::quat(imageCsv[1].second[i], imageCsv[2].second[i], imageCsv[3].second[i], imageCsv[4].second[i]), glm::vec3(imageCsv[5].second[i], imageCsv[6].second[i], imageCsv[7].second[i]), dir + "/view" + padnumber((int)imageCsv[8].second[i]) + ".jpg");
-		}
-		else {
-			views[i] = View((int)imageCsv[0].second[i], glm::quat(imageCsv[1].second[i], imageCsv[2].second[i], imageCsv[3].second[i], imageCsv[4].second[i]), glm::vec3(imageCsv[5].second[i], imageCsv[6].second[i], imageCsv[7].second[i]), dir + "/view" + padnumber((int)imageCsv[8].second[i]) + ".jpg",
-				dir + "/depth_treated/viewd" + padnumber((int)imageCsv[0].second[i]) + ".png", depthCsv[1].second[i], depthCsv[2].second[i]);
-		}
-
-		//views[i] = View(i, glm::vec3(csv[1].second[i], csv[2].second[i], csv[3].second[i]), glm::vec3(csv[4].second[i], csv[5].second[i], csv[6].second[i]), dir+"/view"+padnumber(i+1)+".png");
 	}
 }
 
@@ -47,4 +38,8 @@ int Viewset::size() {
 
 View Viewset::getView(int id) {
 	return views[id];
+}
+
+Testview Viewset::getTestview(int id) {
+	return testviews[id];
 }

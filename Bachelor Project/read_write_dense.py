@@ -165,13 +165,13 @@ def process(filename, sourceDir, targetDir, args):
     depth_map[depth_map > max_depth] = max_depth
     print(str(min_depth) + ", " + str(max_depth))
     
-    writeDepthToFile(depth_map,min_depth,max_depth,targetDir+filename.replace(".photometric.bin", ".png"))
+    #writeDepthToFile(depth_map,min_depth,max_depth,targetDir+filename.replace(".photometric.bin", ".png"))
     return (min_depth,max_depth)
 
 def main():
     
-    sourceDir = "treeview/depth_untreated/"
-    targetDir = "treeview/depth_treated/"
+    sourceDir = "gerrardview/depth_untreated/"
+    targetDir = "gerrardview/depth_treated/"
     
     args = parse_args()
 

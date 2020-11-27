@@ -18,6 +18,27 @@ public:
 		delete[] vertexNormals;
 		delete[] realVertexColors;
 	}
+	//Subsamples another point cloud
+	PointCloud(PointCloud* pointCloud, const int subsample) : length(pointCloud->length/subsample) {
+		vertexPositions = new float[length * 3];
+		vertexColors = new unsigned char[1];
+		vertexNormals = new float[length * 3];
+		realVertexColors = new float[length*3];
+		int j = 0;
+		for (int i = 0; i < this->length;i++) {
+			vertexPositions[i * 3] = pointCloud->vertexPositions[j * 3];
+			vertexPositions[i * 3+1] = pointCloud->vertexPositions[j * 3+1];
+			vertexPositions[i * 3+2] = pointCloud->vertexPositions[j * 3+2];
+			vertexNormals[i * 3] = pointCloud->vertexNormals[j * 3];
+			vertexNormals[i * 3 + 1] = pointCloud->vertexNormals[j * 3 + 1];
+			vertexNormals[i * 3 + 2] = pointCloud->vertexNormals[j * 3 + 2];
+			realVertexColors[i * 3] = pointCloud->realVertexColors[j * 3];
+			realVertexColors[i * 3 + 1] = pointCloud->realVertexColors[j * 3 + 1];
+			realVertexColors[i * 3 + 2] = pointCloud->realVertexColors[j * 3 + 2];
+
+			j += subsample;
+		}
+	}
 
 	int getLength() {
 		return length;
@@ -36,6 +57,7 @@ public:
 		for(int i=0;i<3;i++)
 			avgColor[i] = (avgExactColor[i] / length)/255.f;
 	}
+
 
 	float* vertexPositions;
 	unsigned char* vertexColors;

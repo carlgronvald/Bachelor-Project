@@ -1,0 +1,24 @@
+#version 430
+layout(local_size_x = 1, local_size_y=1) in;
+layout(rgba32f, binding=0) uniform image2D img_output;
+uniform sampler2D fromTex;
+uniform float xratio;
+uniform float yratio;
+uniform float ox;
+uniform float oy;
+
+void main() {
+	ivec2 pixel_coords = ivec2(gl_GlobalInvocationID.xy);
+	
+	vec2 UV = vec2(pixel_coords.x*xratio, pixel_coords.y*yratio);
+
+	vec4 tl = texture(fromTex, UV);
+	vec4 tr = texture(fromTex, UV+vec2(ox,0));
+	vec4 bl = texture(fromTex, UV+vec2(0,oy));
+	vec4 br = texture(fromTex, UV+vec2(ox,oy));
+
+	vec4 res = max(max(tl,tr),max(bl,br));
+
+
+	imageStore(img_output, pixel_coords, vec4(vec3(abs(res.x)),1));
+}
