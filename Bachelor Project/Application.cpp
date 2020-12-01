@@ -1118,7 +1118,7 @@ public:
 	//The point cloud that is subsampled
 	PointCloud* pcSubsampled;
 	//Level of subsampling, N_sub = N/subsample.
-	int subsample = 100;
+	int subsample = 1;
 
 	Application() {
 

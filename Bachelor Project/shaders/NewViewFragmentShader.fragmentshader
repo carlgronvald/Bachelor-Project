@@ -2,6 +2,7 @@
 
 in vec3 vColor;
 in vec2 vertexxy;
+in vec3 vertexnormal;
 
 
 in float angles[5];
@@ -90,6 +91,8 @@ void main() {
 	//color = vec4(0, (bestPart+1)/5.0, 0, 1);
 	
 	//color = vec4(0,1,0,1);
+
+	color = vec4((vertexnormal+vec3(1))/2, 1);
 	
 	/*for(int i=0;i<5;i++) {
 		viewParts[i] = clamp(viewParts[i]/totalViewPart, 0, 1);

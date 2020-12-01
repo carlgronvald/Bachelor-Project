@@ -6,6 +6,7 @@ layout(location=2) in vec3 normal;
 
 out vec3 vColor;
 out vec2 vertexxy;
+out vec3 vertexnormal;
 out float vertexz;
 out float vertexw;
 out float angles[5];
@@ -55,6 +56,7 @@ float LinearizeDepth(float depth)
 
 void main() {
 	gl_Position = MVP * vec4(vertexPosition_modelspace, 1);
+	vertexnormal = normal;
 
 	//viewParts = vec2( viewDir[0], viewDir2[0] );
 
