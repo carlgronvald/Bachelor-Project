@@ -10,6 +10,7 @@ out float vertexz;
 out float vertexw;
 out float angles[5];
 out float distances[5];
+out float viewDistances[5];
 
 uniform mat4 MVP;
 uniform mat4 viewMVP[5];

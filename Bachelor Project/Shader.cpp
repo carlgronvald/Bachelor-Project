@@ -74,6 +74,7 @@ Shader::Shader(const char* computeShaderFile) {
 
 Shader::~Shader()
 {
+	glDeleteShader(id);	
 }
 
 bool Shader::isComputeShader() {

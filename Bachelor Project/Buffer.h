@@ -21,6 +21,10 @@ public:
 		return length;
 	}
 
+	unsigned int GetId() {
+		return id;
+	}
+
 private:
 	unsigned int id;
 	void* dataPointer;

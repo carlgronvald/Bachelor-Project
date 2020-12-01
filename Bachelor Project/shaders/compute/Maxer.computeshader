@@ -28,4 +28,5 @@ void main() {
 
 
 	imageStore(img_output, pixel_coords, vec4(vec3(abs(res)),1));
+	//imageStore(img_output, pixel_coords, vec4(vec3(texture(fromTex, UV).x),1));
 }

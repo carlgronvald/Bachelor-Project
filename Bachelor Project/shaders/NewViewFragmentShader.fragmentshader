@@ -6,6 +6,7 @@ in vec2 vertexxy;
 
 in float angles[5];
 in float distances[5];
+//in float viewDistances[5];
 in float vertexz;
 in float vertexw;
 
@@ -30,7 +31,7 @@ float cameraDepth(vec4 tex, int i) {
 }
 
 float weight(float x, float c) { //Returns the weighing of a view given squared distance, angle, and shadow map confidence
-	return exp((-x*x*kt - c*c*kc));
+	return (-x*x*kt - c*c*kc);
 }
 float near = 0.1; 
 float far  = 100.0; 
@@ -54,6 +55,8 @@ void main() {
 	modelspace = inverse(MVP) * modelspace;
 	float totalViewPart;
 	float viewParts[5];
+	int bestPart = -1;
+	float bestWeight = -1000000000;
 	vec4 viewPos;
 	float d,c;
 	color = vec4(0,1,0,1);
@@ -65,34 +68,51 @@ void main() {
 
 		c = texture(confidenceTexture[i], (viewPos.xy/viewPos.w+vec2(1))/2).x;
 
-		//d = abs(cameraDepth( texture(depthTexture[i], (viewPos.xy/viewPos.z+vec2(1))/2), i ) - viewPos.z); 
-		
-		viewParts[i] = clamp( weight(x, c)  - pow(  viewPos.x/viewPos.w*viewPos.x/viewPos.w, 64) - pow(viewPos.y/viewPos.w*viewPos.y/viewPos.w, 64)  - pow(distances[i]*kdist,64)  ,0,1);
-		totalViewPart += viewParts[i];
+		d = abs(LinearizeDepth( texture(depthTexture[i], (viewPos.xy/viewPos.w+vec2(1))/2).r ) - viewPos.w*1.1); 
+		//d = distances[i];
+
+		viewParts[i] = clamp( weight(x, c)  - pow(  viewPos.x/viewPos.w*viewPos.x/viewPos.w, 64) - pow(viewPos.y/viewPos.w*viewPos.y/viewPos.w, 64)  - pow(d*kdist,64)  ,0,1);
+		if(weight(x,c) > bestWeight && abs(viewPos.x/viewPos.w*viewPos.x/viewPos.w) < 1 && abs(viewPos.y/viewPos.w*viewPos.y/viewPos.w) < 1 && d*kdist < 1) {
+			bestPart = i;
+			bestWeight = weight(x,c);
+		}
+		//totalViewPart += viewParts[i];
 	}
+	if(bestPart != -1) {
+		viewPos = viewMVP[bestPart] * modelspace;
+		color = texture(externalTexture[bestPart], (viewPos.xy/viewPos.w+vec2(1))/2);
+	} else {
+		color = vec4(vColor,1);
+	}
+	//viewPos = viewMVP[0] * modelspace;
+	//d = abs(LinearizeDepth( texture(depthTexture[0], (viewPos.xy/viewPos.w+vec2(1))/2).r ) - viewPos.w*1.1); 
+	//color = vec4(0,d,0,1);
+	//color = vec4(0, (bestPart+1)/5.0, 0, 1);
 	
 	//color = vec4(0,1,0,1);
 	
-	for(int i=0;i<5;i++) {
+	/*for(int i=0;i<5;i++) {
 		viewParts[i] = clamp(viewParts[i]/totalViewPart, 0, 1);
-	}
+	}*/
+
 	
 
-	vec4 tcolor = vec4(0);
-	float vt=0;
+	//vec4 tcolor = vec4(0);
+	//float vt=0;
 
 	//float tdepth = 0;
-	for(int i=0;i<5;i++) {
+	/*for(int i=0;i<5;i++) {
 		viewPos = viewMVP[i] * modelspace;
 		tcolor += texture(externalTexture[i], (viewPos.xy/viewPos.w+vec2(1))/2)*viewParts[i];
 		//tdepth += cameraDepth(texture(colmapDepth[i], dUV[i]*(screenxy-vertexxy)+UVs[i]), i)*viewParts[i];
 		vt += viewParts[i];
-	}
+	}*/
 
 
-	vt = clamp(vt,0,1);
-	tcolor.w = 1;
-	color = (tcolor*vt + vec4(vColor,1)*(1.0-vt))*1;
+	//vt = clamp(vt,0,1);
+	//tcolor.w = 1;
+	//color = (tcolor*vt + vec4(vColor,1)*(1.0-vt))*1;
+	//color = vec4(0,distances[0]/100,0,0);
 
 	
 	//viewPos = viewMVP[0] * modelspace;

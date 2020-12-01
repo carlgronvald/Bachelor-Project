@@ -23,7 +23,7 @@ float extFov = 53.0792;
 float speed = 1.5f; // 3 units / second
 float mouseSpeed = 0.005f;
 float pointSize = 8;
-float kdt = 0, kd = 0, kt = 10, kc = 346.667, sigma2 = 1,kdist=43.333;
+float kdt = 0, kd = 0, kt = 1, kc = 10, sigma2 = 1,kdist=10;
 
 glm::mat4 getViewMatrix() {
 	return ViewMatrix;
@@ -194,10 +194,10 @@ void computeMatricesFromInputs(GLFWwindow* window) {
 	}
 
 	if (glfwGetKey(window, GLFW_KEY_K) == GLFW_PRESS) {
-		kc += deltaTime * 0.8;
+		kc += deltaTime * 100;
 	}
 	if (glfwGetKey(window, GLFW_KEY_L) == GLFW_PRESS) {
-		kc -= deltaTime * 0.8;
+		kc -= deltaTime * 100;
 	}
 
 	float FoV = initialFoV;// - 5 * glfwGetMouseWheel(); // Now GLFW 3 requires setting up a callback for this. It's a bit too complicated for this beginner's tutorial, so it's disabled instead.

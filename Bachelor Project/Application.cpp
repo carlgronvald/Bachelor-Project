@@ -104,7 +104,60 @@ class Application {
 		return 0;
 	}
 
+	void loadFramebuffers(int vWidth, int vHeight) {
+
+		glGenFramebuffers(1, &synth_fbo);
+		glBindFramebuffer(GL_FRAMEBUFFER, synth_fbo);
+		/*if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
+		std::cout << "Framebuffer creation failed!!" << std::endl;
+		return;
+		}*/
+
+		// The depth buffer
+		glGenRenderbuffers(1, &synth_drb);
+		glBindRenderbuffer(GL_RENDERBUFFER, synth_drb);
+		glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT, vWidth, vHeight);
+		glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, synth_drb);
+
+		glDrawBuffer(GL_NONE);
+
+		glGenFramebuffers(1, &render_fbo);
+		glBindFramebuffer(GL_FRAMEBUFFER, render_fbo);
+		/*if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
+		std::cout << "Framebuffer creation failed!!" << std::endl;
+		return;
+		}*/
+
+		// The depth buffer
+		glGenRenderbuffers(1, &render_drb);
+		glBindRenderbuffer(GL_RENDERBUFFER, render_drb);
+		glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT, vWidth, vHeight);
+		glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, render_drb);
+		screenTex = Texture(vWidth, vHeight, GL_RGB, GL_RGB, nullptr);
+		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, screenTex.getId(), 0);
+	}
+
+	Texture convTexture;
+	Texture d1tex, d2tex, tmpTexture;
+	//Texture d1tex = Texture(confidenceTexture.getWidth()/2, confidenceTexture.getHeight()/2, GL_RGBA32F, GL_RGBA, nullptr);
+	//Texture d2tex = Texture(d1tex.getWidth() / 2, d1tex.getHeight() / 2, GL_RGBA32F, GL_RGBA, nullptr);
+	//Texture tmpTexture = Texture(confidenceTexture.getWidth(), confidenceTexture.getHeight(), GL_RGBA32F, GL_RGBA, nullptr);
+	//relevantDepthTextures[i] = Texture(vWidth, vHeight, GL_DEPTH_COMPONENT16, GL_DEPTH_COMPONENT, NULL);
+	//Texture confidenceTexture = Texture(depthTexture.getWidth(), depthTexture.getHeight(), GL_RGBA32F, GL_RGBA, nullptr); //Should it be RGBA32F?
+	void loadTextures(int vWidth, int vHeight) {
+		convTexture = Texture(vWidth, vHeight, GL_RGBA32F, GL_RGBA, nullptr);
+		for (int i = 0; i < VIEWNUM; i++) {
+			relevantDepthTextures[i] = Texture(vWidth, vHeight, GL_DEPTH_COMPONENT16, GL_DEPTH_COMPONENT, NULL);
+			relevantConfidenceTextures[i] = Texture(vWidth/4, vHeight/4, GL_RGBA32F, GL_RGBA, nullptr);
+		}
+		d1tex = Texture(vWidth / 2, vHeight / 2, GL_RGBA32F, GL_RGBA, nullptr);
+		d2tex = Texture(vWidth / 4, vHeight / 4, GL_RGBA32F, GL_RGBA, nullptr);
+		tmpTexture = Texture(vWidth , vHeight , GL_RGBA32F, GL_RGBA, nullptr);
+	}
+
 	void loadShaders() {
+
+
 
 		convShader = Shader("shaders/compute/ColmapDepthmapConverter.computeshader");
 		convShader.CreateUniformLocation("fromTex");
@@ -135,6 +188,14 @@ class Application {
 		downsampleShader.CreateUniformLocation("yratio");
 		downsampleShader.CreateUniformLocation("ox");
 		downsampleShader.CreateUniformLocation("oy");
+
+		maxShader = Shader("shaders/compute/Maxer.computeshader");
+		maxShader.CreateUniformLocation("fromTex");
+		maxShader.CreateUniformLocation("xratio");
+		maxShader.CreateUniformLocation("yratio");
+
+		synthShader = Shader("shaders/DepthVertexShader.vertexshader", "shaders/DepthFragmentShader.fragmentshader");
+		synthShader.CreateUniformLocation("MVP");
 #ifdef SIMPLE
 #ifdef NORMALS
 		visualShader = Shader("shaders/NormalVertexShader.vertexshader", "shaders/NormalFragmentShader.fragmentshader");
@@ -211,6 +272,8 @@ class Application {
 	float weight(float d2, float x) {
 		return std::exp((-x*x) / sigma2);
 	}
+
+	bool verbose = false;
 
 	void renderPoints(glm::mat4 MVP, glm::vec3 Position, glm::vec3 Direction, int width, int height) {
 
@@ -293,7 +356,8 @@ class Application {
 
 
 
-
+		if (verbose)
+			std::cout << "setting point size" << std::endl;
 		glPointSize(getPointSize());
 
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -319,6 +383,8 @@ class Application {
 		glUniform3fv(activeShader->GetUniformLocation("camLoc"), 1, &Position[0]);
 		float minDepths[5];
 		float maxDepths[5];
+		if (verbose)
+			std::cout << "Binding textures" << std::endl;
 		for (int i = 0; i < 5; i++) {
 			glActiveTexture(textureSlots[i]);
 			glBindTexture(GL_TEXTURE_2D, relevantViews[i].getTexture().getId());
@@ -338,6 +404,8 @@ class Application {
 		int slotRefs[] = { 1,2,3,4,5 };
 		glUniform1iv(activeShader->GetUniformLocation("externalTexture"), 5, &slotRefs[0]);
 
+		if (verbose)
+			std::cout << "Passing texture uniforms" << std::endl;
 		if (depthsSynthesized) {
 			int confidenceSlotRefs[] = { 6,7,8,9,10 };
 			int depthSlotRefs[] = { 11,12,13,14,15 };
@@ -377,7 +445,9 @@ class Application {
 
 
 		//I'm not sure this is how I want to do it.
-		glDrawArrays(GL_POINTS, 0, pc->getLength());
+		if (verbose)
+			std::cout << "Drawing points #" << vBuffer.GetLength() << " with ID " << vBuffer.GetId() << std::endl;
+		glDrawArrays(GL_POINTS, 0, vBuffer.GetLength());
 
 		vBuffer.Unbind();
 		cBuffer.Unbind();
@@ -501,38 +571,11 @@ glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 	void getRender(glm::mat4 MVP, glm::vec3 position, glm::vec3 direction, int vWidth, int vHeight, unsigned char* dataOut, int excludedView=-379) {
 
-		if (screenTex.getId() != 0) {
+		/*if (screenTex.getId() != 0) {
 			unsigned int del = screenTex.getId();
 			glDeleteTextures(1, &del);
-		}
-
-		glViewport(0, 0, vWidth, vHeight); //Render on the camera
-		glClearColor(0, 0, 0, 1);
-
-		unsigned int synth_fbo;
-		glGenFramebuffers(1, &synth_fbo);
-		glBindFramebuffer(GL_FRAMEBUFFER, synth_fbo);
-		/*if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
-		std::cout << "Framebuffer creation failed!!" << std::endl;
-		return;
 		}*/
 
-		// The depth buffer
-		unsigned int depthRenderbuffer;
-		glGenRenderbuffers(1, &depthRenderbuffer);
-		glBindRenderbuffer(GL_RENDERBUFFER, depthRenderbuffer);
-		glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT, vWidth, vHeight);
-		glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, depthRenderbuffer);
-
-		screenTex = Texture(vWidth, vHeight, GL_RGB, GL_RGB, nullptr);
-		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, screenTex.getId(), 0);
-
-		if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
-			std::cout << "ERROR::FRAMEBUFFER:: Framebuffer is not complete!" << std::endl;
-
-//		glm::mat4 projectionMatrix = glm::perspective(glm::radians(getExtFOV() + kfov), float(vWidth) / vHeight, 0.1f, 100.0f);
-//		glm::mat4 MVP;
-//		MVP = projectionMatrix * view.getViewMatrix();
 		chooseViews(position, direction, vs, excludedView);
 		if (!depthsSynthesized) {
 			synthesizeRelevantDepths();
@@ -540,15 +583,56 @@ glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 		}
 
 
-		glViewport(0, 0, vWidth, vHeight); //Render on the camera
+		if (verbose)
+			std::cout << "Binding framebuffers" << std::endl;
+		glBindFramebuffer(GL_FRAMEBUFFER, render_fbo);
+		glBindRenderbuffer(GL_RENDERBUFFER, render_drb);
+
+		if (verbose)
+			std::cout << "Changing viewport" << std::endl;
+		glViewport(0, 0, vWidth, vHeight); //Render on the camera	
 		glClearColor(0, 0, 0, 1);
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+		if (verbose)
+			std::cout << "Checking buffer status" << std::endl;
+		if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
+			std::cout << "ERROR::FRAMEBUFFER:: Framebuffer is not complete! Buffer ID: " << render_fbo << ", render buffer ID: " << render_drb << ", screen tex ID " << screenTex.getId() << std::endl;
+			const char* status = "";
+			if (glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_UNDEFINED)
+				status = "Undefined";
+			else if (glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_INCOMPLETE_ATTACHMENT)
+				status = "Incomplete Attachment";
+			else if (glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_INCOMPLETE_MISSING_ATTACHMENT)
+				status = "Incomplete Missing Attachment";
+			else if (glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_INCOMPLETE_DRAW_BUFFER)
+				status = "Incomplete Draw Buffer";
+			else if (glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_INCOMPLETE_READ_BUFFER)
+				status = "Incomplete Read Buffer";
+			else if (glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_UNSUPPORTED)
+				status = "Unsupported";
+			else if (glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_INCOMPLETE_MULTISAMPLE)
+				status = "Incomplete Multisample";
+			else if (glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_INCOMPLETE_LAYER_TARGETS)
+				status = "Incomplete Layer Targets";
+
+			std::cout << "Framebuffer status: " << status << std::endl;
+		}
+//		glm::mat4 projectionMatrix = glm::perspective(glm::radians(getExtFOV() + kfov), float(vWidth) / vHeight, 0.1f, 100.0f);
+//		glm::mat4 MVP;
+//		MVP = projectionMatrix * view.getViewMatrix();
+
+
+		if (verbose)
+			std::cout << "Rendering points #" << vBuffer.GetLength() << std::endl;
 		renderPoints(MVP, position, direction, vWidth, vHeight);
 		glReadPixels(0, 0, vWidth, vHeight, GL_RGB, GL_UNSIGNED_BYTE, &dataOut[0]);
 
+		//glBindTexture(GL_TEXTURE_2D, screenTex.getId());
+		//glGetTexImage(GL_TEXTURE_2D, 0, GL_RGB, GL_UNSIGNED_BYTE, &dataOut[0]);
+
 		glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
-		glDeleteFramebuffers(1, &synth_fbo);
-		glDeleteRenderbuffers(1, &depthRenderbuffer);
 	}
 
 	int comparison = 0;
@@ -556,21 +640,37 @@ glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 		int vWidth = 1000;
 		int vHeight = 1000;
 
+		verbose = true;
+
+		if (verbose)
+			std::cout << "Pre point render" << std::endl;
 		float origPointSize = getPointSize();
 		Shader* oldShader = activeShader;
 		pc = pcOriginal;
 		genBuffers();
 		setPointSize(1);
 		activeShader = &visualPointColorShader;
+		if (verbose)
+			std::cout << "Visual point color shader ID: " << activeShader->getId() << std::endl;
 		unsigned char* data2 = new unsigned char[vWidth*vHeight * 3];
+
+		if (verbose)
+			std::cout << "Rendering now" << std::endl;
 		getRender(MVP, position, direction, vWidth, vHeight, data2, excludedView);
 		setPointSize(origPointSize);
 		activeShader = &visualDepthShader;
+		if (verbose)
+			std::cout << "Pre real render" << std::endl;
 
 		unsigned char* data1 = new unsigned char[vWidth*vHeight * 3];
 		pc = pcSubsampled;
 		genBuffers();
+
+		if (verbose)
+			std::cout << "Rendering now" << std::endl;
 		getRender(MVP, position, direction, vWidth, vHeight, data1, excludedView);
+
+		verbose = false;
 
 
 		stbi_write_png(("screenshots/comp" + padnumber(comparison) + "a.png").c_str(), vWidth, vHeight, 3, data1, vWidth * 3);
@@ -699,7 +799,7 @@ glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 		std::cout << "Testing for view " << testview.getId() << std::endl;
 		chooseViews(testview.getPosition(), testview.getDirection(), vs, testview.getId());
 		synthesizeRelevantDepths();
-		std::cout << "Testing against view with id " << relevantViews[0].getId() << ", and testview has id " << testview.getId() << std::endl;
+		std::cout << "Testing against view with id " << relevantViews[0].getId() << ", and testview has id " << testview.getId() << std::endl; 
 
 		std::stringstream resstring;
 
@@ -740,56 +840,65 @@ glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 		auto end = std::chrono::high_resolution_clock::now();
 		std::chrono::duration<double> elapsed = end - start;
 		std::cout << "Testing took " << elapsed.count() << " seconds" << std::endl;
+		/* Swap front and back buffers */
+		glfwSwapBuffers(window);
+
+		/* Poll for and process events */
+		glfwPollEvents();
 	}
 
+	double** sumErrors;
+	int curView = 0;
+
 	void testValues() {
-		int rangeSteps = 5;
-		double** sumErrors = new double*[rangeSteps];
-		for (int i = 0; i < rangeSteps; i++) {
-			sumErrors[i] = new double[rangeSteps];
-			for (int j = 0; j < rangeSteps; j++) {
-				sumErrors[i][j] = 0;
+		int rangeSteps = 21;
+		if (curView == 0) {
+			sumErrors = new double*[rangeSteps];
+			for (int i = 0; i < rangeSteps; i++) {
+				sumErrors[i] = new double[rangeSteps];
+				for (int j = 0; j < rangeSteps; j++) {
+					sumErrors[i][j] = 0;
+				}
 			}
 		}
 
 		std::stringstream results;
-		results << "KC\tKDIST" << std::endl;
+		results << "KC\tKDIST\tERR" << std::endl;
 		float origValues[2] = { getkc(), getkdist() };
 		float startpoints[2] = { 0.f, 0.f };
 		float rangeSize[2] = { 400.f, 100.f};
 
-		for (int i = 0; i < vs.size(); i++) {
-			testValuesForView(vs.getView(i), sumErrors, startpoints, rangeSize, rangeSteps);
-		}
-		std::cout << "Bunches and bunches of errors" << std::endl << std::endl;
-		for (int i = 0; i < rangeSteps; i++) {
-			for (int j = 0; j < rangeSteps; j++) {
-				results << "" << i*rangeSize[0]/(rangeSteps-1) << "\t" << j*rangeSize[1] / (rangeSteps - 1) << "\t" << sumErrors[i][j] << std::endl;
-				std::cout << "" << i * rangeSize[0] / (rangeSteps - 1) << "\t" << j * rangeSize[1] / (rangeSteps - 1) << "\t" << sumErrors[i][j] << std::endl;
-			}
-		}
-
-
-		std::ofstream file;
-		std::stringstream filename;
-		filename << "testresults/finalResults.txt";
-		file.open(filename.str());
-		file << results.str();
-		file.close();
-
+		testValuesForView(vs.getView(curView++), sumErrors, startpoints, rangeSize, rangeSteps);
 		setValue(0, origValues[0]);
 		setValue(1, origValues[1]);
+
+		if (curView == vs.size()) {
+			std::cout << "Bunches and bunches of errors" << std::endl << std::endl;
+			for (int i = 0; i < rangeSteps; i++) {
+				for (int j = 0; j < rangeSteps; j++) {
+					results << "" << i * rangeSize[0] / (rangeSteps - 1) << "\t" << j * rangeSize[1] / (rangeSteps - 1) << "\t" << sumErrors[i][j] << std::endl;
+					std::cout << "" << i * rangeSize[0] / (rangeSteps - 1) << "\t" << j * rangeSize[1] / (rangeSteps - 1) << "\t" << sumErrors[i][j] << std::endl;
+				}
+			}
+
+
+			std::ofstream file;
+			std::stringstream filename;
+			filename << "testresults/finalResults.txt";
+			file.open(filename.str());
+			file << results.str();
+			file.close();
+
+			for (int i = 0; i < rangeSteps; i++) {
+				delete[] sumErrors[i];
+			}
+			delete[] sumErrors;
+		}
 	}
 	void genBuffers() {
 		vBuffer = Buffer(sizeof(float) * 3, pc->getLength(), pc->vertexPositions, 0);
-		vBuffer.Bind();
-
-		// And a color buffer!
 		cBuffer = Buffer(sizeof(float) * 3, pc->getLength(), pc->realVertexColors, 1);
-		cBuffer.Bind();
-
 		nBuffer = Buffer(sizeof(float) * 3, pc->getLength(), pc->vertexNormals, 2);
-		nBuffer.Bind();
 	}
 	//Generate synthetic depth maps using opengl depth textures
 	void synthesizeRelevantDepths() {
@@ -807,7 +916,8 @@ glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 		glViewport(0, 0, vWidth, vHeight); //Render on the camera
 
-		Shader synthShader("shaders/DepthVertexShader.vertexshader", "shaders/DepthFragmentShader.fragmentshader");
+		glBindFramebuffer(GL_FRAMEBUFFER, synth_fbo);
+		glBindRenderbuffer(GL_RENDERBUFFER, synth_drb);
 		unsigned int matrixId = synthShader.GetUniformLocation("MVP");
 		for (int i = 0; i < VIEWNUM; i++) {
 			synthShader.Bind();
@@ -816,26 +926,11 @@ glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 			cBuffer.Bind();
 			nBuffer.Bind();
 
-			//The frame buffer
-			unsigned int synth_fbo;
-			glGenFramebuffers(1, &synth_fbo);
-			glBindFramebuffer(GL_FRAMEBUFFER, synth_fbo);
 
-			// The depth buffer
-			unsigned int depthRenderbuffer;
-			glGenRenderbuffers(1, &depthRenderbuffer);
-			glBindRenderbuffer(GL_RENDERBUFFER, depthRenderbuffer);
-			glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT, vWidth, vHeight);
-			glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, depthRenderbuffer);
-
-			glDrawBuffer(GL_NONE);
 
 			if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
-				std::cout << "ERROR::FRAMEBUFFER:: Framebuffer is not complete!" << std::endl;
+				std::cout << "ERROR::FRAMEBUFFER:: Framebuffer is not complete! Buffer ID: " << synth_fbo << ", render buffer ID: " << synth_drb << std::endl;
 
-			unsigned int deletes[] = { relevantDepthTextures[i].getId(), relevantConfidenceTextures[i].getId() };
-			glDeleteTextures(2, &deletes[0]);
-			relevantDepthTextures[i] = Texture(vWidth, vHeight, GL_DEPTH_COMPONENT16, GL_DEPTH_COMPONENT, NULL);
 			glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, relevantDepthTextures[i].getId(), 0);
 			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 			MVP = projectionMatrix * relevantViews[i].getViewMatrix();
@@ -846,11 +941,9 @@ glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 			glDrawArrays(GL_POINTS, 0, vBuffer.GetLength());
 
-			Texture tmp = convertDepthMap(relevantViews[i].getDepthMap().getTexture());
-			relevantConfidenceTextures[i] = synthesizeConfidenceMap(tmp);
+			convertDepthMap(relevantViews[i].getDepthMap().getTexture(), convTexture);
+			synthesizeConfidenceMap(convTexture, relevantConfidenceTextures[i]);
 
-			glDeleteFramebuffers(1, &synth_fbo);
-			glDeleteRenderbuffers(1, &depthRenderbuffer);
 			vBuffer.Unbind();
 			cBuffer.Unbind();
 			nBuffer.Unbind();
@@ -865,8 +958,7 @@ glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 
 	// Converts a colmap depth texture into a linear depth texture
-	Texture convertDepthMap(Texture colmapDepthTexture) {
-		Texture resTexture = Texture(colmapDepthTexture.getWidth(), colmapDepthTexture.getHeight(), GL_RGBA32F, GL_RGBA, nullptr);
+	void convertDepthMap(Texture colmapDepthTexture, Texture target) {
 
 		std::cout << "Converting depthmap texture" << std::endl;
 
@@ -874,17 +966,18 @@ glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 		glBindTexture(GL_TEXTURE_2D, colmapDepthTexture.getId());
 		glUniform1i(convShader.GetUniformLocation("fromTex"), 0);
 
-		convShader.compute(resTexture.getWidth(), resTexture.getHeight(), 1, resTexture);
-		return resTexture;
+		convShader.compute(target.getWidth(), target.getHeight(), 1, target);
 	}
+
+
+
 
 	//Creates the depth map confidence map for one view
 	// Use the colmap depth texture converted
-	Texture synthesizeConfidenceMap(Texture depthTexture) {
+	void synthesizeConfidenceMap(Texture depthTexture, Texture target) {
 		kernelShader.Bind();
-		Texture confidenceTexture = Texture(depthTexture.getWidth(), depthTexture.getHeight(), GL_RGBA32F, GL_RGBA, nullptr); //Should it be RGBA32F?
 
-		std::cout << "Generating confidence texture " << confidenceTexture.getId() << "of width " << confidenceTexture.getWidth() << " and height " << confidenceTexture.getHeight() << std::endl;
+		std::cout << "Generating confidence texture " << target.getId() << "of width " << target.getWidth() << " and height " << target.getHeight() << std::endl;
 
 		// A discrete laplacian kernel.
 		glm::mat3 kernel{ 0,1,0,1,-4,1,0,1,0 };
@@ -893,38 +986,36 @@ glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 		glActiveTexture(GL_TEXTURE0);
 		glBindTexture(GL_TEXTURE_2D, depthTexture.getId());
 		glUniform1i(kernelShader.GetUniformLocation("fromTex"), 0);
-		glUniform1f(kernelShader.GetUniformLocation("xratio"), 1.f / (confidenceTexture.getWidth()-1));
-		glUniform1f(kernelShader.GetUniformLocation("yratio"), 1.f / (confidenceTexture.getHeight() - 1));
+		glUniform1f(kernelShader.GetUniformLocation("xratio"), 1.f / (depthTexture.getWidth()-1));
+		glUniform1f(kernelShader.GetUniformLocation("yratio"), 1.f / (depthTexture.getHeight() - 1));
 		//glBindImageTexture(1, colmapDepthTexture.getId(), 0, GL_FALSE, 0, GL_READ_ONLY, GL_RGBA);
 
 
-		kernelShader.compute(confidenceTexture.getWidth(), confidenceTexture.getHeight(), 1, confidenceTexture);
+		kernelShader.compute(depthTexture.getWidth(), depthTexture.getHeight(), 1, tmpTexture);
 
 
 
 		//Downsampling & Smoothing
 		
 
-		Texture d1tex = Texture(confidenceTexture.getWidth()/2, confidenceTexture.getHeight()/2, GL_RGBA32F, GL_RGBA, nullptr);
-
+		
 		downsampleShader.Bind();
 		glActiveTexture(GL_TEXTURE0);
-		glBindTexture(GL_TEXTURE_2D, confidenceTexture.getId());
+		glBindTexture(GL_TEXTURE_2D, tmpTexture.getId());
 		glUniform1i(downsampleShader.GetUniformLocation("fromTex"), 0);
 
 		glUniform1f(downsampleShader.GetUniformLocation("xratio"), 1.f / (d1tex.getWidth() - 1));
 		glUniform1f(downsampleShader.GetUniformLocation("yratio"), 1.f / (d1tex.getHeight() - 1));
-		glUniform1f(downsampleShader.GetUniformLocation("ox"), 1.f / (confidenceTexture.getWidth() - 1));
-		glUniform1f(downsampleShader.GetUniformLocation("oy"), 1.f / (confidenceTexture.getHeight() - 1));
+		glUniform1f(downsampleShader.GetUniformLocation("ox"), 1.f / (tmpTexture.getWidth() - 1));
+		glUniform1f(downsampleShader.GetUniformLocation("oy"), 1.f / (tmpTexture.getHeight() - 1));
 
 		downsampleShader.compute(d1tex.getWidth(), d1tex.getHeight(), 1, d1tex);
 
 
-		Texture d2tex = Texture(d1tex.getWidth() / 2, d1tex.getHeight() / 2, GL_RGBA32F, GL_RGBA, nullptr);
 
 		downsampleShader.Bind();
 		glActiveTexture(GL_TEXTURE0);
-		glBindTexture(GL_TEXTURE_2D, confidenceTexture.getId());
+		glBindTexture(GL_TEXTURE_2D, d1tex.getId());
 		glUniform1i(downsampleShader.GetUniformLocation("fromTex"), 0);
 
 		glUniform1f(downsampleShader.GetUniformLocation("xratio"), 1.f / (d2tex.getWidth() - 1));
@@ -936,35 +1027,44 @@ glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 
 		//Use the one called confidenceTexture again from now on.
-		unsigned int del = confidenceTexture.getId();
-		confidenceTexture = d2tex;
-		Texture tmpTexture = Texture(confidenceTexture.getWidth(), confidenceTexture.getHeight(), GL_RGBA32F, GL_RGBA, nullptr);
+		//unsigned int del = confidenceTexture.getId();
+		//confidenceTexture = d2tex;
 
+		maxShader.Bind();
+		glActiveTexture(GL_TEXTURE0);
+		glBindTexture(GL_TEXTURE_2D, d2tex.getId());
+		glUniform1i(maxShader.GetUniformLocation("fromTex"), 0);
+
+		glUniform1f(maxShader.GetUniformLocation("xratio"), 1.f / (d2tex.getWidth() - 1));
+		glUniform1f(maxShader.GetUniformLocation("yratio"), 1.f / (d2tex.getHeight() - 1));
+
+		maxShader.compute(target.getWidth(), target.getHeight(), 1, target);
+
+		
 		gaussShader.Bind();
 
 		glActiveTexture(GL_TEXTURE0);
-		glBindTexture(GL_TEXTURE_2D, confidenceTexture.getId());
+		glBindTexture(GL_TEXTURE_2D, target.getId());
 		glUniform1i(gaussShader.GetUniformLocation("fromTex"), 0);
 
-		glUniform1f(gaussShader.GetUniformLocation("xratio"), 1.f / (confidenceTexture.getWidth() - 1));
-		glUniform1f(gaussShader.GetUniformLocation("yratio"), 1.f / (confidenceTexture.getHeight() - 1));
+		glUniform1f(gaussShader.GetUniformLocation("xratio"), 1.f / (target.getWidth() - 1));
+		glUniform1f(gaussShader.GetUniformLocation("yratio"), 1.f / (target.getHeight() - 1));
 		glUniform1f(gaussShader.GetUniformLocation("ox"), 0);
-		glUniform1f(gaussShader.GetUniformLocation("oy"), 1.f / (confidenceTexture.getHeight() - 1));
+		glUniform1f(gaussShader.GetUniformLocation("oy"), 1.f / (target.getHeight() - 1));
 
-		gaussShader.compute(confidenceTexture.getWidth(), confidenceTexture.getHeight(), 1, tmpTexture);
+		gaussShader.compute(target.getWidth(), target.getHeight(), 1, d2tex);
 
 		glActiveTexture(GL_TEXTURE0);
-		glBindTexture(GL_TEXTURE_2D, tmpTexture.getId());
+		glBindTexture(GL_TEXTURE_2D, d2tex.getId());
 		glUniform1i(gaussShader.GetUniformLocation("fromTex"), 0);
 
-		glUniform1f(gaussShader.GetUniformLocation("xratio"), 1.f / (confidenceTexture.getWidth() - 1));
-		glUniform1f(gaussShader.GetUniformLocation("yratio"), 1.f / (confidenceTexture.getHeight() - 1));
-		glUniform1f(gaussShader.GetUniformLocation("ox"), 1.f / (confidenceTexture.getWidth() - 1));
+		glUniform1f(gaussShader.GetUniformLocation("xratio"), 1.f / (target.getWidth() - 1));
+		glUniform1f(gaussShader.GetUniformLocation("yratio"), 1.f / (target.getHeight() - 1));
+		glUniform1f(gaussShader.GetUniformLocation("ox"), 1.f / (target.getWidth() - 1));
 		glUniform1f(gaussShader.GetUniformLocation("oy"), 0);
 
-		gaussShader.compute(confidenceTexture.getWidth(), confidenceTexture.getHeight(), 1, confidenceTexture);
-
-
+		gaussShader.compute(target.getWidth(), target.getHeight(), 1, target);
+		
 		//Smoothing, maybe it should be done with a bigger kernel or smth.
 
 		/*kernel = glm::mat3{ 1/16.f, 1/8.f, 1/16.f, 1/8.f, 1/4.f, 1/8.f, 1/16.f, 1/8.f, 1/16.f };
@@ -982,10 +1082,12 @@ glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 		kernelShader.compute(confidenceTexture.getWidth(), confidenceTexture.getHeight(), 1, confidenceTexture);*/
 
-		unsigned int ctid[] = { depthTexture.getId(), tmpTexture.getId(), del, d1tex.getId() };
-		glDeleteTextures(4, &ctid[0]);
+		//unsigned int ctid[] = { depthTexture.getId(), tmpTexture.getId(), del, d1tex.getId() };
+		//glDeleteTextures(4, &ctid[0]);
 
-		return confidenceTexture;
+		std::cout << "Current ID: " << target.getId() << std::endl;
+
+		//return confidenceTexture;
 	}
 
 public:
@@ -1005,15 +1107,18 @@ public:
 	Texture relevantDepthTextures[VIEWNUM];
 	Texture relevantConfidenceTextures[VIEWNUM];
 	float clearColor[3];
-	Shader convShader, synthConvShader, kernelShader, gaussShader, visualShader, visualDepthShader, visualPointColorShader, debugShader, downsampleShader, maxShader;
+	Shader convShader, synthConvShader, kernelShader, gaussShader, visualShader, visualDepthShader, visualPointColorShader, debugShader, downsampleShader, maxShader, synthShader;
 	Shader* activeShader;
+
+	unsigned int synth_fbo, synth_drb, render_fbo, render_drb;
+
 	PointCloud* pc;
 	//The point cloud that isn't subsampled
 	PointCloud* pcOriginal;
 	//The point cloud that is subsampled
 	PointCloud* pcSubsampled;
 	//Level of subsampling, N_sub = N/subsample.
-	int subsample = 1;
+	int subsample = 100;
 
 	Application() {
 
@@ -1027,17 +1132,6 @@ public:
 		if (status != 0)
 			return status;
 
-		int work_grp_count[3];
-
-		glGetIntegeri_v(GL_MAX_COMPUTE_WORK_GROUP_COUNT, 0, &work_grp_count[0]);
-		glGetIntegeri_v(GL_MAX_COMPUTE_WORK_GROUP_COUNT, 1, &work_grp_count[1]);
-		glGetIntegeri_v(GL_MAX_COMPUTE_WORK_GROUP_COUNT, 2, &work_grp_count[2]);
-
-		std::cout << "Work group counts x: " << work_grp_count[0] << ", y: " << work_grp_count[1] << ", z: " << work_grp_count[2] << std::endl;
-
-		int work_grp_invocations;
-		glGetIntegerv(GL_MAX_COMPUTE_WORK_GROUP_INVOCATIONS, &work_grp_invocations);
-		std::cout << "Work group invocations: " << work_grp_invocations << std::endl;
 
 
 
@@ -1153,6 +1247,8 @@ public:
 
 
 		loadShaders();
+		loadFramebuffers(relevantViews[0].getTexture().getWidth(), relevantViews[0].getTexture().getHeight());
+		loadTextures(relevantViews[0].getTexture().getWidth(), relevantViews[0].getTexture().getHeight());
 
 		visualShader.Bind();
 
@@ -1209,7 +1305,7 @@ public:
 				glm::vec3 Position = getPosition();
 				glm::vec2 Angles = getAngles();
 				ss << "(" << Position[0] << "," << Position[1] << "," << Position[2] << ") (" << Angles[0] << "," << Angles[1] << ")";
-				ss << "kdist " << getkdist() << ", kd" << getkd() << ", kt" << getkt() << ", kc" << getkc();
+				ss << "kdist " << getkdist() << ", kd" << getkd() << ", kt" << getkt() << ", kc" << getkc() << ", point size" << getPointSize();
 
 				glfwSetWindowTitle(window, ss.str().c_str());
 
@@ -1236,12 +1332,16 @@ public:
 
 	//		drawTextureOnScreen(screenTex.getId(), width/2, 0, width / 2, height / 2, debugShader, dqBuffer, debugTexId);
 
-			if (depthsSynthesized) {
+			/*if (depthsSynthesized) {
 				drawTextureOnScreen(relevantConfidenceTextures[0].getId(), 0, 0, width / 4, height / 4, debugShader, dqBuffer, debugShader.GetUniformLocation("tex"));
 				drawTextureOnScreen(relevantConfidenceTextures[1].getId(), width / 4, 0, width / 4, height / 4, debugShader, dqBuffer, debugShader.GetUniformLocation("tex"));
 				drawTextureOnScreen(relevantConfidenceTextures[2].getId(), 2 * width / 4, 0, width / 4, height / 4, debugShader, dqBuffer, debugShader.GetUniformLocation("tex"));
 				drawTextureOnScreen(relevantConfidenceTextures[3].getId(), 3 * width / 4, 0, width / 4, height / 4, debugShader, dqBuffer, debugShader.GetUniformLocation("tex"));
-			}
+				drawTextureOnScreen(relevantViews[0].getDepthMap().getTexture().getId(), 0, height / 4, width / 4, height / 4, debugShader, dqBuffer, debugShader.GetUniformLocation("tex"));
+				drawTextureOnScreen(relevantViews[1].getDepthMap().getTexture().getId(), width / 4, height / 4, width / 4, height / 4, debugShader, dqBuffer, debugShader.GetUniformLocation("tex"));
+				drawTextureOnScreen(relevantViews[2].getDepthMap().getTexture().getId(), 2 * width / 4, height / 4, width / 4, height / 4, debugShader, dqBuffer, debugShader.GetUniformLocation("tex"));
+				drawTextureOnScreen(relevantViews[3].getDepthMap().getTexture().getId(), 3 * width / 4, height / 4, width / 4, height / 4, debugShader, dqBuffer, debugShader.GetUniformLocation("tex"));
+			}*/
 
 			//drawTextureOnScreen(relevantViews[0].getTexture().getId(), 0, 0, width / 4, height / 4, debugShader, dqBuffer, debugTexId);
 			//if(this->depthsSynthesized)
