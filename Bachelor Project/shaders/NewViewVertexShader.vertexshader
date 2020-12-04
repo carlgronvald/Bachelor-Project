@@ -1,5 +1,7 @@
 #version 330 core
 
+#define VIEWNUM 20
+
 layout(location=0) in vec3 vertexPosition_modelspace;
 layout(location=1) in vec3 color;
 layout(location=2) in vec3 normal;
@@ -9,22 +11,22 @@ out vec2 vertexxy;
 out vec3 vertexnormal;
 out float vertexz;
 out float vertexw;
-out float angles[5];
-out float distances[5];
-out float viewDistances[5];
+out float angles[VIEWNUM];
+out float distances[VIEWNUM];
+out float viewDistances[VIEWNUM];
 
 uniform mat4 MVP;
-uniform mat4 viewMVP[5];
-uniform vec3 viewDir[5];
-uniform vec3 viewLoc[5];
+uniform mat4 viewMVP[VIEWNUM];
+uniform vec3 viewDir[VIEWNUM];
+uniform vec3 viewLoc[VIEWNUM];
 uniform vec3 camLoc;
 uniform vec3 camDir;
 
-uniform sampler2D depthTexture[5];
-uniform float minDepth[5];
-uniform float maxDepth[5];
-uniform sampler2D confidenceTexture[5];
-uniform sampler2D colmapDepth[5];
+uniform sampler2D depthTexture[VIEWNUM];
+uniform float minDepth[VIEWNUM];
+uniform float maxDepth[VIEWNUM];
+uniform sampler2D confidenceTexture[VIEWNUM];
+uniform sampler2D colmapDepth[VIEWNUM];
 
 //Proportionality constants for gaussian weights
 uniform float kdt;
@@ -62,7 +64,7 @@ void main() {
 
 	vec2 pos = (gl_Position.xy/gl_Position.w); //This is the screen position in the [-1,1] square.
 	vec4 viewPos;
-	for(int i=0;i<5;i++) {
+	for(int i=0;i<VIEWNUM;i++) {
 		angles[i] = acos(dot(viewDir[i], camDir));
 		viewPos = viewMVP[i] * vec4(vertexPosition_modelspace,1);
 

@@ -7,7 +7,7 @@
 //#define RAPID_LOAD					//Loads a fast, small dataset
 //#define NO_POINTS						//Doesn't load nor render points
 
-#define VIEWNUM 5 //Note: This is not fully implemented yet. It is the number of views used.
+#define VIEWNUM 20 //Number of views used by shader.
 
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
@@ -305,15 +305,15 @@ class Application {
 
 
 #ifdef MULTIPLE_VIEWS
-		glm::mat4 ExternalViewMatrices[5];
+		glm::mat4 ExternalViewMatrices[VIEWNUM];
 		glm::mat4 ExternalProjectionMatrix = glm::perspective(glm::radians(getExtFOV()), relevantViews[0].getTexture().getWidth() / ((float)relevantViews[0].getTexture().getHeight()), 0.1f, 100.0f);
-		glm::mat4 ExternalMVPs[5];
+		glm::mat4 ExternalMVPs[VIEWNUM];
 
-		glm::vec3 ExternalViewDirs[5];
-		glm::vec3 ExternalViewLocs[5];
+		glm::vec3 ExternalViewDirs[VIEWNUM];
+		glm::vec3 ExternalViewLocs[VIEWNUM];
 
 
-		for (int i = 0; i < 5; i++) {
+		for (int i = 0; i < VIEWNUM; i++) {
 			ExternalViewMatrices[i] = relevantViews[i].getViewMatrix();
 			ExternalMVPs[i] = ExternalProjectionMatrix * ExternalViewMatrices[i];
 
@@ -375,17 +375,17 @@ class Application {
 		glUniformMatrix4fv(activeShader->GetUniformLocation("MVP"), 1, GL_FALSE, &MVP[0][0]);
 
 #ifdef MULTIPLE_VIEWS
-		glUniformMatrix4fv(activeShader->GetUniformLocation("viewMVP"), 5, GL_FALSE, &ExternalMVPs[0][0][0]);
-		glUniform3fv(activeShader->GetUniformLocation("viewDir"), 5, &ExternalViewDirs[0][0]);
-		glUniform3fv(activeShader->GetUniformLocation("viewLoc"), 5, &ExternalViewLocs[0][0]);
+		glUniformMatrix4fv(activeShader->GetUniformLocation("viewMVP"), VIEWNUM, GL_FALSE, &ExternalMVPs[0][0][0]);
+		glUniform3fv(activeShader->GetUniformLocation("viewDir"), VIEWNUM, &ExternalViewDirs[0][0]);
+		glUniform3fv(activeShader->GetUniformLocation("viewLoc"), VIEWNUM, &ExternalViewLocs[0][0]);
 
 		glUniform3fv(activeShader->GetUniformLocation("camDir"), 1, &Direction[0]);
 		glUniform3fv(activeShader->GetUniformLocation("camLoc"), 1, &Position[0]);
-		float minDepths[5];
-		float maxDepths[5];
+		float minDepths[VIEWNUM];
+		float maxDepths[VIEWNUM];
 		if (verbose)
 			std::cout << "Binding textures" << std::endl;
-		for (int i = 0; i < 5; i++) {
+		for (int i = 0; i < VIEWNUM; i++) {
 			glActiveTexture(textureSlots[i]);
 			glBindTexture(GL_TEXTURE_2D, relevantViews[i].getTexture().getId());
 
@@ -397,24 +397,28 @@ class Application {
 			glBindTexture(GL_TEXTURE_2D, relevantConfidenceTextures[i].getId());
 			glActiveTexture(depthTextureSlots[i]);
 			glBindTexture(GL_TEXTURE_2D, relevantDepthTextures[i].getId());
-			glActiveTexture(GL_TEXTURE0 + 16 + i);
-			glBindTexture(GL_TEXTURE_2D, relevantViews[i].getDepthMap().getTexture().getId());
+			//glActiveTexture(GL_TEXTURE0 + 16 + i);
+			//glBindTexture(GL_TEXTURE_2D, relevantViews[i].getDepthMap().getTexture().getId());
 		}
 
-		int slotRefs[] = { 1,2,3,4,5 };
-		glUniform1iv(activeShader->GetUniformLocation("externalTexture"), 5, &slotRefs[0]);
+		int slotRefs[VIEWNUM];
+		int confidenceSlotRefs[VIEWNUM];
+		int depthSlotRefs[VIEWNUM];
+		//int cdepthSlotRefs[VIEWNUM];
+		for (int i = 0; i < VIEWNUM; i++) {
+			slotRefs[i] = 1 + i;
+			confidenceSlotRefs[i] = 1 + VIEWNUM + i;
+			depthSlotRefs[i] = 1 + 2 * VIEWNUM + i;
+		}
+		glUniform1iv(activeShader->GetUniformLocation("externalTexture"), VIEWNUM, &slotRefs[0]);
 
 		if (verbose)
 			std::cout << "Passing texture uniforms" << std::endl;
 		if (depthsSynthesized) {
-			int confidenceSlotRefs[] = { 6,7,8,9,10 };
-			int depthSlotRefs[] = { 11,12,13,14,15 };
-			int cdepthSlotRefs[] = { 16,17,18,19,20 };
-			glUniform1iv(activeShader->GetUniformLocation("confidenceTexture"), 5, &confidenceSlotRefs[0]);
-			glUniform1iv(activeShader->GetUniformLocation("depthTexture"), 5, &depthSlotRefs[0]);
-			glUniform1iv(activeShader->GetUniformLocation("colmapDepth"), 5, &cdepthSlotRefs[0]);
-			glUniform1fv(activeShader->GetUniformLocation("minDepth"), 5, &minDepths[0]);
-			glUniform1fv(activeShader->GetUniformLocation("maxDepth"), 5, &maxDepths[0]);
+			glUniform1iv(activeShader->GetUniformLocation("confidenceTexture"), VIEWNUM, &confidenceSlotRefs[0]);
+			glUniform1iv(activeShader->GetUniformLocation("depthTexture"), VIEWNUM, &depthSlotRefs[0]);
+			glUniform1fv(activeShader->GetUniformLocation("minDepth"), VIEWNUM, &minDepths[0]);
+			glUniform1fv(activeShader->GetUniformLocation("maxDepth"), VIEWNUM, &maxDepths[0]);
 
 			glUniform1f(activeShader->GetUniformLocation("kdt"), getkdt());
 			glUniform1f(activeShader->GetUniformLocation("kd"), getkd());
@@ -1093,9 +1097,9 @@ glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 public:
 	bool multipleViews;
 	int width = 1000, height = 1000;
-	unsigned int textureSlots[5] = { GL_TEXTURE1, GL_TEXTURE2, GL_TEXTURE3, GL_TEXTURE4, GL_TEXTURE5 };
-	unsigned int depthTextureSlots[5] = { GL_TEXTURE11, GL_TEXTURE12, GL_TEXTURE13, GL_TEXTURE14, GL_TEXTURE15 };
-	unsigned int confidenceTextureSlots[5] = { GL_TEXTURE6, GL_TEXTURE7, GL_TEXTURE8, GL_TEXTURE9, GL_TEXTURE10 }; 
+	unsigned int textureSlots[VIEWNUM];
+	unsigned int depthTextureSlots[VIEWNUM];
+	unsigned int confidenceTextureSlots[VIEWNUM]; 
 	View relevantViews[VIEWNUM];
 	GLFWwindow* window;
 	Viewset vs;
@@ -1132,6 +1136,11 @@ public:
 		if (status != 0)
 			return status;
 
+		for (int i = 0; i < VIEWNUM; i++) {
+			textureSlots[i] = GL_TEXTURE1 + i;
+			confidenceTextureSlots[i] = GL_TEXTURE1 + VIEWNUM + i;
+			depthTextureSlots[i] = GL_TEXTURE1 + VIEWNUM * 2 + i;
+		}
 
 
 

@@ -1,21 +1,22 @@
 #version 330 core
+#define VIEWNUM 20
 
 in vec3 vColor;
 in vec2 vertexxy;
 in vec3 vertexnormal;
 
 
-in float angles[5];
-in float distances[5];
-//in float viewDistances[5];
+in float angles[VIEWNUM];
+in float distances[VIEWNUM];
+//in float viewDistances[VIEWNUM];
 in float vertexz;
 in float vertexw;
 
-uniform sampler2D externalTexture[5];
-uniform sampler2D depthTexture[5];
-uniform sampler2D colmapDepth[5];
-uniform sampler2D confidenceTexture[5];
-uniform mat4 viewMVP[5];
+uniform sampler2D externalTexture[VIEWNUM];
+uniform sampler2D depthTexture[VIEWNUM];
+uniform sampler2D colmapDepth[VIEWNUM];
+uniform sampler2D confidenceTexture[VIEWNUM];
+uniform mat4 viewMVP[VIEWNUM];
 uniform mat4 MVP;
 
 uniform int screenWidth;
@@ -55,13 +56,13 @@ void main() {
 	modelspace = vec4((screenxy*2-vec2(1))*vertexw, vertexz, vertexw);
 	modelspace = inverse(MVP) * modelspace;
 	float totalViewPart;
-	float viewParts[5];
+	float viewParts[VIEWNUM];
 	int bestPart = -1;
 	float bestWeight = -1000000000;
 	vec4 viewPos;
 	float d,c;
 	color = vec4(0,1,0,1);
-	for(int i=0;i<5;i++) {
+	for(int i=0;i<VIEWNUM;i++) {
 	
 		viewPos = viewMVP[i] * modelspace;
 
@@ -92,7 +93,7 @@ void main() {
 	
 	//color = vec4(0,1,0,1);
 
-	color = vec4((vertexnormal+vec3(1))/2, 1);
+	//color = vec4((vertexnormal+vec3(1))/2, 1);
 	
 	/*for(int i=0;i<5;i++) {
 		viewParts[i] = clamp(viewParts[i]/totalViewPart, 0, 1);

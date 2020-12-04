@@ -12,19 +12,19 @@ import numpy as np
 
 A = cv2.UMat(np.array([[3838.27,0,2808],[0,3837.22,1872],[0,0,1]]))
 
-image_file_path = "Colmap_tree\\dense\\0\\sparse\\images.txt"
-image_file_output_path = "Colmap_tree\\dense\\0\\view.txt"
-image_folder = "Colmap_tree\\dense\\0\\images2\\"
-depth_folder = "Colmap_tree\\dense\\0\\stereo\\depth_maps2\\"
+image_file_path = "south-building\\south-building\\dense\\0\\sparse\\images.txt"
+image_file_output_path = "south-building\\south-building\\dense\\0\\view.txt"
+image_folder = "south-building\\south-building\\dense\\0\\images2\\"
+depth_folder = "south-building\\south-building\\dense\\0\\stereo\\depth_maps2\\"
 
-rename_images = False
-rename_depth_maps = False
+rename_images = True
+rename_depth_maps = True
 
 def renameImage(imageName, ID):
     if rename_images:
         os.rename(image_folder + imageName.strip(), image_folder + "view" + str(ID).zfill(3) + ".jpg")
     if rename_depth_maps:
-        os.rename(depth_folder + imageName.strip()+".photometric.bin", depth_folder+"viewd"+str(ID).zfill(3) + ".photometric.bin")
+        os.rename(depth_folder + imageName.strip()+".geometric.bin", depth_folder+"viewd"+str(ID).zfill(3) + ".geometric.bin")
 
 
 
