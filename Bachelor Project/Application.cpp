@@ -7,7 +7,7 @@
 //#define RAPID_LOAD					//Loads a fast, small dataset
 //#define NO_POINTS						//Doesn't load nor render points
 
-#define VIEWNUM 20 //Number of views used by shader.
+#define VIEWNUM 5 //Number of views used by shader.
 
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
@@ -217,6 +217,7 @@ class Application {
 		visualDepthShader.CreateUniformLocation("confidenceTexture");
 		visualDepthShader.CreateUniformLocation("minDepth");
 		visualDepthShader.CreateUniformLocation("maxDepth");
+		visualDepthShader.CreateUniformLocation("pointSize");
 
 
 		Shader** shaders = new Shader*[3]{ &visualShader, &visualDepthShader, &visualPointColorShader };
@@ -389,7 +390,8 @@ class Application {
 			glActiveTexture(textureSlots[i]);
 			glBindTexture(GL_TEXTURE_2D, relevantViews[i].getTexture().getId());
 
-			//glBindTexture(GL_TEXTURE_2D, relevantViews[i].getDepthMap().getTexture().getId());
+			glActiveTexture(cdepthTextureSlots[i]);
+			glBindTexture(GL_TEXTURE_2D, relevantViews[i].getDepthMap().getTexture().getId());
 			minDepths[i] = relevantViews[i].getDepthMap().getMinDepth();
 			maxDepths[i] = relevantViews[i].getDepthMap().getMaxDepth();
 
@@ -404,11 +406,12 @@ class Application {
 		int slotRefs[VIEWNUM];
 		int confidenceSlotRefs[VIEWNUM];
 		int depthSlotRefs[VIEWNUM];
-		//int cdepthSlotRefs[VIEWNUM];
+		int cdepthSlotRefs[VIEWNUM];
 		for (int i = 0; i < VIEWNUM; i++) {
 			slotRefs[i] = 1 + i;
 			confidenceSlotRefs[i] = 1 + VIEWNUM + i;
 			depthSlotRefs[i] = 1 + 2 * VIEWNUM + i;
+			cdepthSlotRefs[i] = 1 + 3 * VIEWNUM + i;
 		}
 		glUniform1iv(activeShader->GetUniformLocation("externalTexture"), VIEWNUM, &slotRefs[0]);
 
@@ -417,6 +420,7 @@ class Application {
 		if (depthsSynthesized) {
 			glUniform1iv(activeShader->GetUniformLocation("confidenceTexture"), VIEWNUM, &confidenceSlotRefs[0]);
 			glUniform1iv(activeShader->GetUniformLocation("depthTexture"), VIEWNUM, &depthSlotRefs[0]);
+			glUniform1iv(activeShader->GetUniformLocation("colmapDepth"), VIEWNUM, &cdepthSlotRefs[0]);
 			glUniform1fv(activeShader->GetUniformLocation("minDepth"), VIEWNUM, &minDepths[0]);
 			glUniform1fv(activeShader->GetUniformLocation("maxDepth"), VIEWNUM, &maxDepths[0]);
 
@@ -425,6 +429,7 @@ class Application {
 			glUniform1f(activeShader->GetUniformLocation("kt"), getkt());
 			glUniform1f(activeShader->GetUniformLocation("kc"), getkc());
 			glUniform1f(activeShader->GetUniformLocation("kdist"), getkdist());
+			glUniform1f(activeShader->GetUniformLocation("pointSize"), getPointSize());
 		}
 #else
 		glUniformMatrix4fv(ExternalMatrixID, 1, GL_FALSE, &ExternalMVP[0][0]);
@@ -464,7 +469,7 @@ class Application {
 		v2Buffer.Bind();
 		c2Buffer.Bind();
 		n2Buffer.Bind();
-		//glDrawArrays(GL_POINTS, 0, c2Buffer.GetLength());
+		glDrawArrays(GL_POINTS, 0, c2Buffer.GetLength());
 		v2Buffer.Unbind();
 		c2Buffer.Unbind();
 		n2Buffer.Unbind();
@@ -1100,6 +1105,7 @@ public:
 	unsigned int textureSlots[VIEWNUM];
 	unsigned int depthTextureSlots[VIEWNUM];
 	unsigned int confidenceTextureSlots[VIEWNUM]; 
+	unsigned int cdepthTextureSlots[VIEWNUM];
 	View relevantViews[VIEWNUM];
 	GLFWwindow* window;
 	Viewset vs;
@@ -1140,6 +1146,7 @@ public:
 			textureSlots[i] = GL_TEXTURE1 + i;
 			confidenceTextureSlots[i] = GL_TEXTURE1 + VIEWNUM + i;
 			depthTextureSlots[i] = GL_TEXTURE1 + VIEWNUM * 2 + i;
+			cdepthTextureSlots[i] = GL_TEXTURE1 + VIEWNUM * 3 + i;
 		}
 
 

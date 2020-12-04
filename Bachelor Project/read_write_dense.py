@@ -165,7 +165,7 @@ def process(filename, sourceDir, targetDir, args):
     depth_map[depth_map > max_depth] = max_depth
     print(str(min_depth) + ", " + str(max_depth))
     
-    writeDepthToFile(depth_map,min_depth,max_depth,targetDir+filename.replace(".geometric.bin", ".png"))
+    writeDepthToFile(depth_map,min_depth,max_depth,targetDir+filename.replace(".photometric.bin", ".png"))
     return (min_depth,max_depth)
 
 def main():

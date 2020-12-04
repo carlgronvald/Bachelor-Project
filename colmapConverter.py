@@ -17,14 +17,14 @@ image_file_output_path = "south-building\\south-building\\dense\\0\\view.txt"
 image_folder = "south-building\\south-building\\dense\\0\\images2\\"
 depth_folder = "south-building\\south-building\\dense\\0\\stereo\\depth_maps2\\"
 
-rename_images = True
+rename_images = False
 rename_depth_maps = True
 
 def renameImage(imageName, ID):
     if rename_images:
         os.rename(image_folder + imageName.strip(), image_folder + "view" + str(ID).zfill(3) + ".jpg")
     if rename_depth_maps:
-        os.rename(depth_folder + imageName.strip()+".geometric.bin", depth_folder+"viewd"+str(ID).zfill(3) + ".geometric.bin")
+        os.rename(depth_folder + imageName.strip()+".photometric.bin", depth_folder+"viewd"+str(ID).zfill(3) + ".photometric.bin")
 
 
 

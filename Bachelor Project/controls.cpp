@@ -47,8 +47,8 @@ glm::vec2 getAngles() {
 float getExtFOV() {
 	return extFov;
 }
-float getPointSize() {
-	return pointSize;
+int getPointSize() {
+	return (int)pointSize;
 }
 float getkdt() {
 	return kdt;

@@ -9,7 +9,7 @@ glm::vec3 getPosition();
 glm::vec3 getDirection();
 glm::vec2 getAngles();
 float getExtFOV();
-float getPointSize();
+int getPointSize();
 float getkdt();
 float getkd();
 float getkt();

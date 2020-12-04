@@ -1,5 +1,5 @@
 #version 330 core
-#define VIEWNUM 20
+#define VIEWNUM 5
 
 in vec3 vColor;
 in vec2 vertexxy;
@@ -15,6 +15,8 @@ in float vertexw;
 uniform sampler2D externalTexture[VIEWNUM];
 uniform sampler2D depthTexture[VIEWNUM];
 uniform sampler2D colmapDepth[VIEWNUM];
+uniform float minDepth[VIEWNUM];
+uniform float maxDepth[VIEWNUM];
 uniform sampler2D confidenceTexture[VIEWNUM];
 uniform mat4 viewMVP[VIEWNUM];
 uniform mat4 MVP;
@@ -24,12 +26,14 @@ uniform int screenHeight;
 uniform float kt;
 uniform float kc;
 uniform float kdist;
+//For round points
+uniform float pointSize;
 
 out vec4 color;
 
 
 float cameraDepth(vec4 tex, int i) {
-	return dot(tex, vec4(1,256,65536,16777216))/16777216.0*2;
+	return dot(tex, vec4(1,256,65536,16777216))/16777216.0*maxDepth[i];
 }
 
 float weight(float x, float c) { //Returns the weighing of a view given squared distance, angle, and shadow map confidence
@@ -47,9 +51,11 @@ float LinearizeDepth(float depth)
 
 
 void main() {
-	
-
 	vec2 screenxy = vec2(gl_FragCoord.x / screenWidth, gl_FragCoord.y / screenHeight); //Fragment xy
+	vec2 pixeldiff = (screenxy-vertexxy)*vec2(screenWidth, screenHeight);
+	if(dot(pixeldiff, pixeldiff) > pointSize*pointSize/4) {
+		discard;
+	}
 
 
 	vec4 modelspace;
@@ -119,7 +125,11 @@ void main() {
 	//color = vec4(0,distances[0]/100,0,0);
 
 	
+	
 	//viewPos = viewMVP[0] * modelspace;
+	//color = texture(colmapDepth[0], (viewPos.xy/viewPos.w+vec2(1))/2);
+	//color = vec4(cameraDepth(color,0));
+	//color = vec4(0, color.x/maxDepth[0], 0, 1);
 	//d = abs(LinearizeDepth( texture(depthTexture[0], (viewPos.xy/viewPos.w+vec2(1))/2).x ) - viewPos.w*1.1); 
 	//color = vec4(0,distances[0],0,1);
 

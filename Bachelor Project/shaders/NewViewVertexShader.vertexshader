@@ -1,6 +1,6 @@
 #version 330 core
 
-#define VIEWNUM 20
+#define VIEWNUM 5
 
 layout(location=0) in vec3 vertexPosition_modelspace;
 layout(location=1) in vec3 color;
