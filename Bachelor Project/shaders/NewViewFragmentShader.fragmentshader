@@ -1,5 +1,6 @@
 #version 330 core
-#define VIEWNUM 5
+#define VIEWNUM 10
+#define FACTOR 0.99609375
 
 in vec3 vColor;
 in vec2 vertexxy;
@@ -33,7 +34,7 @@ out vec4 color;
 
 
 float cameraDepth(vec4 tex, int i) {
-	return dot(tex, vec4(1,256,65536,16777216))/16777216.0*maxDepth[i];
+	return dot(tex, vec4(FACTOR/16777216,FACTOR/65536,FACTOR/256,FACTOR)) * (maxDepth[i]-minDepth[i])+minDepth[i];
 }
 
 float weight(float x, float c) { //Returns the weighing of a view given squared distance, angle, and shadow map confidence
@@ -76,7 +77,7 @@ void main() {
 
 		c = texture(confidenceTexture[i], (viewPos.xy/viewPos.w+vec2(1))/2).x;
 
-		d = abs(LinearizeDepth( texture(depthTexture[i], (viewPos.xy/viewPos.w+vec2(1))/2).r ) - viewPos.w*1.1); 
+		d = abs(cameraDepth(texture(colmapDepth[i], (viewPos.xy/viewPos.w+vec2(1))/2),i) - viewPos.w);
 		//d = distances[i];
 
 		viewParts[i] = clamp( weight(x, c)  - pow(  viewPos.x/viewPos.w*viewPos.x/viewPos.w, 64) - pow(viewPos.y/viewPos.w*viewPos.y/viewPos.w, 64)  - pow(d*kdist,64)  ,0,1);
@@ -88,11 +89,12 @@ void main() {
 	}
 	if(bestPart != -1) {
 		viewPos = viewMVP[bestPart] * modelspace;
-		color = texture(externalTexture[bestPart], (viewPos.xy/viewPos.w+vec2(1))/2);
+		color = texture(externalTexture[bestPart], (viewPos.xy/viewPos.w+vec2(1))/2);//* vec4(1,0.95,1,1);
 	} else {
-		color = vec4(vColor,1);
+		color = vec4(vColor,1);//* vec4(0.95,1,0.95,1);
 	}
-	//viewPos = viewMVP[0] * modelspace;
+	//color = vec4(textured);
+	viewPos = viewMVP[0] * modelspace;
 	//d = abs(LinearizeDepth( texture(depthTexture[0], (viewPos.xy/viewPos.w+vec2(1))/2).r ) - viewPos.w*1.1); 
 	//color = vec4(0,d,0,1);
 	//color = vec4(0, (bestPart+1)/5.0, 0, 1);
@@ -100,6 +102,11 @@ void main() {
 	//color = vec4(0,1,0,1);
 
 	//color = vec4((vertexnormal+vec3(1))/2, 1);
+	
+	//float cd = cameraDepth(texture(colmapDepth[0], (viewPos.xy/viewPos.w+vec2(1))/2),0);
+
+	//color = vec4(abs(cd-viewPos.w));
+	//color = vec4(abs(cd*(maxDepth[0]-minDepth[0])+minDepth[0]-viewPos.w));
 	
 	/*for(int i=0;i<5;i++) {
 		viewParts[i] = clamp(viewParts[i]/totalViewPart, 0, 1);

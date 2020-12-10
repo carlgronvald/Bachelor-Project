@@ -49,6 +49,7 @@ std::vector<std::pair<std::string, std::vector<float>>> readCsv(std::string file
 			std::cout << "reading something " << colname << std::endl;
 			// Initialize and add <colname, int vector> pairs to result
 			result.push_back({ colname, std::vector<float> {} });
+			std::cout << "created column " << colname << std::endl;
 		}
 	}
 
@@ -63,7 +64,7 @@ std::vector<std::pair<std::string, std::vector<float>>> readCsv(std::string file
 
 		// Extract each integer
 		while (ss >> val) {
-
+			std::cout << val << std::endl;
 			// Add the current float to the 'colIdx' column's values vector
 			result.at(colIdx).second.push_back(val);
 

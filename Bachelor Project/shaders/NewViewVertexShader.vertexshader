@@ -1,6 +1,6 @@
 #version 330 core
 
-#define VIEWNUM 5
+#define VIEWNUM 10
 
 layout(location=0) in vec3 vertexPosition_modelspace;
 layout(location=1) in vec3 color;
@@ -13,7 +13,8 @@ out float vertexz;
 out float vertexw;
 out float angles[VIEWNUM];
 out float distances[VIEWNUM];
-out float viewDistances[VIEWNUM];
+//out float viewDistances[VIEWNUM];
+
 
 uniform mat4 MVP;
 uniform mat4 viewMVP[VIEWNUM];
@@ -61,13 +62,11 @@ void main() {
 	vertexnormal = normal;
 
 	//viewParts = vec2( viewDir[0], viewDir2[0] );
-
 	vec2 pos = (gl_Position.xy/gl_Position.w); //This is the screen position in the [-1,1] square.
 	vec4 viewPos;
 	for(int i=0;i<VIEWNUM;i++) {
 		angles[i] = acos(dot(viewDir[i], camDir));
 		viewPos = viewMVP[i] * vec4(vertexPosition_modelspace,1);
-
 		distances[i] = abs(LinearizeDepth( texture(depthTexture[i], (viewPos.xy/viewPos.w+vec2(1))/2).x ) - viewPos.w*1.1); 
 	}
 	vertexxy = (pos+vec2(1))/2;

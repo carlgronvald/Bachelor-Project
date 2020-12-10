@@ -121,9 +121,9 @@ def writeDepthToFile(depth_map, minD, maxD, filename):
     for i in range(0, height):
         for j in range(0,width):
             val = int(((depth_map[i,j] - minD)/(maxD-minD)) * two32)
-            resimg[i,j,0] = int(val % 256)
-            resimg[i,j,1] = int(val/256%256)
-            resimg[i,j,2] = int(val/65536%256)
+            resimg[i,j,0] = int(val) % 256
+            resimg[i,j,1] = int(val/256)%256
+            resimg[i,j,2] = int(val/65536)%256
             resimg[i,j,3] = int(val/two24)
     
     import imageio
@@ -157,10 +157,11 @@ def writeDepthToFile(depth_map, minD, maxD, filename):
 
 
 def process(filename, sourceDir, targetDir, args):
+    
     depth_map = read_array(sourceDir + filename)
     
     min_depth, max_depth = np.percentile(
-        depth_map, [args.min_depth_percentile, args.max_depth_percentile])
+        depth_map, [5,95])
     depth_map[depth_map < min_depth] = min_depth
     depth_map[depth_map > max_depth] = max_depth
     print(str(min_depth) + ", " + str(max_depth))
@@ -170,8 +171,8 @@ def process(filename, sourceDir, targetDir, args):
 
 def main():
     
-    sourceDir = "southview/depth_untreated/"
-    targetDir = "southview/depth_treated/"
+    sourceDir = "gerrardview/depth_untreated/"
+    targetDir = "gerrardview/depth_treated/"
     
     args = parse_args()
 

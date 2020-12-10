@@ -7,7 +7,7 @@
 //#define RAPID_LOAD					//Loads a fast, small dataset
 //#define NO_POINTS						//Doesn't load nor render points
 
-#define VIEWNUM 5 //Number of views used by shader.
+#define VIEWNUM 10 //Number of views used by shader.
 
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
@@ -52,7 +52,7 @@ void savePicture() {
 	pixels = new unsigned char[1000*1000 * 3];
 	glReadPixels(0, 0, 1000, 1000, GL_RGB, GL_UNSIGNED_BYTE, pixels);
 	stbi_write_png(("screenshots/shot" + padnumber(curPic++) + ".png").c_str(), 1000, 1000, 3, pixels, 1000 * 3);
-	std::cout << "Wrote file " << "screenshots/shot" << padnumber(curPic - 1) << ".png" << std::endl;
+	std::cout << "Wrote file " << "screenshots/shot" << padnumber(curPic - 1) << "?ps=" << getPointSize() << ".png" << std::endl;
 	delete[] pixels;
 }
 void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods) {
@@ -204,7 +204,7 @@ class Application {
 #endif
 #else	
 #ifdef MULTIPLE_VIEWS
-		visualShader = Shader("shaders/ViewDepthlessVertexShader.vertexshader", "shaders/ViewFragmentShader.fragmentshader");
+		visualShader = Shader("shaders/ViewDepthlessVertexShader.vertexshader", "shaders/OldViewFragmentShader.fragmentshader");
 		visualDepthShader = Shader("shaders/NewViewVertexShader.vertexShader", "shaders/NewViewFragmentShader.fragmentshader");
 		visualPointColorShader = Shader("shaders/SimpleVertexShader.vertexshader", "shaders/SimpleFragmentShader.fragmentshader");
 #else
@@ -247,7 +247,9 @@ class Application {
 		delete[] shaders;
 #endif
 	}
-
+	glm::mat4 CreateExternalProjectionMatrix() {
+		return glm::perspective(glm::radians(getExtFOV()), relevantViews[0].getTexture().getWidth() / ((float)relevantViews[0].getTexture().getHeight()), 0.1f, 100.0f);
+	}
 
 #define VIEW_CHOICE_METHOD_BEST_DOT // This one works by just choosing the view with the best dot product - entirely view dependant
 
@@ -307,7 +309,7 @@ class Application {
 
 #ifdef MULTIPLE_VIEWS
 		glm::mat4 ExternalViewMatrices[VIEWNUM];
-		glm::mat4 ExternalProjectionMatrix = glm::perspective(glm::radians(getExtFOV()), relevantViews[0].getTexture().getWidth() / ((float)relevantViews[0].getTexture().getHeight()), 0.1f, 100.0f);
+		glm::mat4 ExternalProjectionMatrix = CreateExternalProjectionMatrix();
 		glm::mat4 ExternalMVPs[VIEWNUM];
 
 		glm::vec3 ExternalViewDirs[VIEWNUM];
@@ -469,7 +471,7 @@ class Application {
 		v2Buffer.Bind();
 		c2Buffer.Bind();
 		n2Buffer.Bind();
-		glDrawArrays(GL_POINTS, 0, c2Buffer.GetLength());
+		//glDrawArrays(GL_POINTS, 0, c2Buffer.GetLength());
 		v2Buffer.Unbind();
 		c2Buffer.Unbind();
 		n2Buffer.Unbind();
@@ -978,9 +980,6 @@ glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 		convShader.compute(target.getWidth(), target.getHeight(), 1, target);
 	}
 
-
-
-
 	//Creates the depth map confidence map for one view
 	// Use the colmap depth texture converted
 	void synthesizeConfidenceMap(Texture depthTexture, Texture target) {
@@ -1097,6 +1096,35 @@ glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 		std::cout << "Current ID: " << target.getId() << std::endl;
 
 		//return confidenceTexture;
+	}
+
+	unsigned int textureLookup(Texture* target, float u, float v) {
+		if (u < 0 || v < 0 || u > 1 || v > 1) {
+			std::cout << "Texture lookup outside texture!!" << std::endl;
+			return 0;
+		}
+
+		int x = u * (target->getWidth() - 1);
+		int y = u * (target->getHeight() - 1);
+		unsigned char* data = new unsigned char[target->getWidth()*target->getHeight() * 4];
+		glBindTexture(GL_TEXTURE_2D, target->getId());
+		glGetTexImage(GL_TEXTURE_2D, 0, GL_RGBA, GL_UNSIGNED_BYTE, &data[0]);
+		unsigned int result = data[(x + y * target->getWidth()) * 4] + data[(x + y * target->getWidth()) * 4 + 1] * 256 + data[(x + y * target->getWidth()) * 4 + 2] * 65536 + data[(x + y * target->getWidth()) * 4 + 3] * 16777216;
+		delete[] data;
+		return result;
+	}
+
+	double DepthValue(glm::vec3 location, int relevantView) {
+		View* v = &relevantViews[relevantView];
+		glm::mat4 MVP = CreateExternalProjectionMatrix() * v->getViewMatrix();
+		glm::vec4 aug = glm::vec4(location, 1);
+		glm::vec4 clip = MVP * aug;
+		glm::vec2 UV = (glm::vec2(clip.x, clip.y) / clip.w + glm::vec2(1)) / 2.f;
+
+		double lookupValue = textureLookup(&v->getDepthMap().getTexture(), UV.x, UV.y) / (4294967295.0);
+
+		std::cout << "lookup val: " << lookupValue << ", depth span: [" << v->getDepthMap().getMinDepth() << ";" << v->getDepthMap().getMaxDepth() << "]" << std::endl;
+		return lookupValue * (v->getDepthMap().getMaxDepth() - v->getDepthMap().getMinDepth()) + v->getDepthMap().getMinDepth() - clip.w;
 	}
 
 public:
@@ -1310,7 +1338,12 @@ public:
 				PointComparison(MVP, getPosition(), getDirection());
 			} else if (glfwGetKey(window, GLFW_KEY_8) == GLFW_PRESS && depthsSynthesized) {
 				DepthComparison(0);
-			}/* else if (glfwGetKey(window, GLFW_KEY_9) == GLFW_PRESS) {
+			}
+			else if (glfwGetKey(window, GLFW_KEY_9) == GLFW_PRESS) {
+				std::cout << "Colmap depth in view 0: " << DepthValue(getPosition(), 0) << std::endl;
+			}
+			
+			/* else if (glfwGetKey(window, GLFW_KEY_9) == GLFW_PRESS) {
 				testValue(vs.getTestview(0, 15, 15, 10, TEST_VALUE_KC);
 			}*/ else if (glfwGetKey(window, GLFW_KEY_5) == GLFW_PRESS) {
 				loadShaders();

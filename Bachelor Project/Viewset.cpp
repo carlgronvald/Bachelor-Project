@@ -9,7 +9,7 @@ Viewset::Viewset() {
 
 Viewset::Viewset(std::string dir) {
 	std::vector < std::pair<std::string, std::vector<float>>> imageCsv = readCsv(dir + "/images.txt", '\t');
-	std::vector < std::pair<std::string, std::vector<float>>> depthCsv = readCsv(dir + "/depth_treated/depths.txt", '\t');
+	std::vector < std::pair<std::string, std::vector<float>>> depthCsv = readCsv(dir + "/depth_treated/depths.txt", ' ');
 	viewCount = imageCsv[0].second.size();
 	views = std::vector<View>(viewCount);
 	//testviews = std::vector<Testview>(0);

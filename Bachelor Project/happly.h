@@ -1905,16 +1905,37 @@ private:
         //elem.properties[iP]->reserve(elem.count);
       }
 	  std::cout << "Done with property stuff" << std::endl;
+	  int size = 27;
+	  if (elem.properties.size() == 10)
+		  size++;
+
+	  char *data = new char[elem.count * size];
+	  inStream.read(&data[0], elem.count * size);
+	  std::cout << "Done reading!" << std::endl;
+
       for (size_t iEntry = 0; iEntry < elem.count; iEntry++) {
-		  if (iEntry % 10000 == 1) {
+		  if (iEntry % 100000 == 1) {
 			  std::cout << "at iteration " << iEntry << "/" << elem.count - 1 << std::endl;
 			  std::cout << pc->vertexPositions[(iEntry / subsample) * 3 - 3] << "," << pc->vertexPositions[(iEntry / subsample) * 3 - 2] << "," << pc->vertexPositions[(iEntry / subsample) * 3 - 1] << std::endl;
 		  }
-		  char* data = new char[28];
+		  //char* data = new char[28];
 		  if (iEntry >= 0) {
 			  float x, y, z, nx, ny, nz;
 			  unsigned char r, g, b, a;
-			  inStream.read((char*)&x, 4);
+			  memcpy(&x, &data[size*iEntry], 4);
+			  memcpy(&y, &data[size*iEntry+4], 4);
+			  memcpy(&z, &data[size*iEntry+8], 4);
+			  memcpy(&nx, &data[size*iEntry+12], 4);
+			  memcpy(&ny, &data[size*iEntry+16], 4);
+			  memcpy(&nz, &data[size*iEntry+20], 4);
+			  memcpy(&r, &data[size*iEntry + 24], 1);
+			  memcpy(&g, &data[size*iEntry + 25], 1);
+			  memcpy(&b, &data[size*iEntry + 26], 1);
+			  if (elem.properties.size() == 10)
+				  memcpy(&a, &data[size*iEntry + 27], 1);
+			  else
+				  a = 255;
+/*			  inStream.read((char*)&x, 4);
 			  inStream.read((char*)&y, 4);
 			  inStream.read((char*)&z, 4);
 			  inStream.read((char*)&nx, 4);
@@ -1926,7 +1947,7 @@ private:
 			  if (elem.properties.size() == 10)
 				  inStream.read((char*)&a, 1);
 			  else
-				  a = 255;
+				  a = 255;*/
 			  //std::cout << x << "," << y << "," << z << " - " << nx << "," << ny << "," << nz << " - " << r << "," << g << "," << b << "," << a << std::endl;
 			  if (iEntry % subsample == 0) {
 				  pc->vertexPositions[(iEntry/subsample) * 3] = x ;
@@ -1944,7 +1965,7 @@ private:
 			  }
 
 			}
-		  delete data;
+		  //delete data;
 		  //for (size_t iP = 0; iP < elem.properties.size(); iP++) {
 			
 			/*if (iP % 10 == 0)
@@ -1961,6 +1982,7 @@ private:
 		if (iEntry == pc->getLength()*subsample)
 			break;
       }
+	  delete[] data;
 	  std::cout << "There were " << deadNormals << " dead normals " << std::endl;
 	  pc->createRealVertexColors();
     }
