@@ -8,13 +8,10 @@ in vec3 vertexnormal;
 
 
 in float angles[VIEWNUM];
-in float distances[VIEWNUM];
-//in float viewDistances[VIEWNUM];
 in float vertexz;
 in float vertexw;
 
 uniform sampler2D externalTexture[VIEWNUM];
-uniform sampler2D depthTexture[VIEWNUM];
 uniform sampler2D colmapDepth[VIEWNUM];
 uniform float minDepth[VIEWNUM];
 uniform float maxDepth[VIEWNUM];
@@ -37,16 +34,8 @@ float cameraDepth(vec4 tex, int i) {
 	return dot(tex, vec4(FACTOR/16777216,FACTOR/65536,FACTOR/256,FACTOR)) * (maxDepth[i]-minDepth[i])+minDepth[i];
 }
 
-float weight(float x, float c) { //Returns the weighing of a view given squared distance, angle, and shadow map confidence
+float weight(float x, float c) { //Returns the weighing of a view given angle and shadow map confidence
 	return (-x*x*kt - c*c*kc);
-}
-float near = 0.1; 
-float far  = 100.0; 
-  
-float LinearizeDepth(float depth) 
-{
-    float z = depth * 2.0 - 1.0; // back to NDC 
-    return (2.0 * near * far) / (far + near - z * (far - near));	
 }
 
 
@@ -63,12 +52,11 @@ void main() {
 	modelspace = vec4((screenxy*2-vec2(1))*vertexw, vertexz, vertexw);
 	modelspace = inverse(MVP) * modelspace;
 	float totalViewPart;
-	float viewParts[VIEWNUM];
 	int bestPart = -1;
 	float bestWeight = -1000000000;
 	vec4 viewPos;
 	float d,c;
-	color = vec4(0,1,0,1);
+	
 	for(int i=0;i<VIEWNUM;i++) {
 	
 		viewPos = viewMVP[i] * modelspace;
@@ -78,74 +66,17 @@ void main() {
 		c = texture(confidenceTexture[i], (viewPos.xy/viewPos.w+vec2(1))/2).x;
 
 		d = abs(cameraDepth(texture(colmapDepth[i], (viewPos.xy/viewPos.w+vec2(1))/2),i) - viewPos.w);
-		//d = distances[i];
 
-		viewParts[i] = clamp( weight(x, c)  - pow(  viewPos.x/viewPos.w*viewPos.x/viewPos.w, 64) - pow(viewPos.y/viewPos.w*viewPos.y/viewPos.w, 64)  - pow(d*kdist,64)  ,0,1);
 		if(weight(x,c) > bestWeight && abs(viewPos.x/viewPos.w*viewPos.x/viewPos.w) < 1 && abs(viewPos.y/viewPos.w*viewPos.y/viewPos.w) < 1 && d*kdist < 1) {
 			bestPart = i;
 			bestWeight = weight(x,c);
 		}
-		//totalViewPart += viewParts[i];
 	}
 	if(bestPart != -1) {
 		viewPos = viewMVP[bestPart] * modelspace;
-		color = texture(externalTexture[bestPart], (viewPos.xy/viewPos.w+vec2(1))/2);//* vec4(1,0.95,1,1);
+		color = texture(externalTexture[bestPart], (viewPos.xy/viewPos.w+vec2(1))/2);
 	} else {
-		color = vec4(vColor,1);//* vec4(0.95,1,0.95,1);
+		color = vec4(vColor,1);
 	}
-	//color = vec4(textured);
 	viewPos = viewMVP[0] * modelspace;
-	//d = abs(LinearizeDepth( texture(depthTexture[0], (viewPos.xy/viewPos.w+vec2(1))/2).r ) - viewPos.w*1.1); 
-	//color = vec4(0,d,0,1);
-	//color = vec4(0, (bestPart+1)/5.0, 0, 1);
-	
-	//color = vec4(0,1,0,1);
-
-	//color = vec4((vertexnormal+vec3(1))/2, 1);
-	
-	//float cd = cameraDepth(texture(colmapDepth[0], (viewPos.xy/viewPos.w+vec2(1))/2),0);
-
-	//color = vec4(abs(cd-viewPos.w));
-	//color = vec4(abs(cd*(maxDepth[0]-minDepth[0])+minDepth[0]-viewPos.w));
-	
-	/*for(int i=0;i<5;i++) {
-		viewParts[i] = clamp(viewParts[i]/totalViewPart, 0, 1);
-	}*/
-
-	
-
-	//vec4 tcolor = vec4(0);
-	//float vt=0;
-
-	//float tdepth = 0;
-	/*for(int i=0;i<5;i++) {
-		viewPos = viewMVP[i] * modelspace;
-		tcolor += texture(externalTexture[i], (viewPos.xy/viewPos.w+vec2(1))/2)*viewParts[i];
-		//tdepth += cameraDepth(texture(colmapDepth[i], dUV[i]*(screenxy-vertexxy)+UVs[i]), i)*viewParts[i];
-		vt += viewParts[i];
-	}*/
-
-
-	//vt = clamp(vt,0,1);
-	//tcolor.w = 1;
-	//color = (tcolor*vt + vec4(vColor,1)*(1.0-vt))*1;
-	//color = vec4(0,distances[0]/100,0,0);
-
-	
-	
-	//viewPos = viewMVP[0] * modelspace;
-	//color = texture(colmapDepth[0], (viewPos.xy/viewPos.w+vec2(1))/2);
-	//color = vec4(cameraDepth(color,0));
-	//color = vec4(0, color.x/maxDepth[0], 0, 1);
-	//d = abs(LinearizeDepth( texture(depthTexture[0], (viewPos.xy/viewPos.w+vec2(1))/2).x ) - viewPos.w*1.1); 
-	//color = vec4(0,distances[0],0,1);
-
-	//color = vec4(0, viewParts[2], 0,1);
-
-	//color = (tcolor*vt + vec4(vColor,1)*(1.0-vt))*0.9*tdepth + vec4(vt, 1-vt, vt, 1)*0.1;
-	//color = (tcolor*vt + vec4(vColor,1)*(1.0-vt))*0.9 + vec4(vt,1-vt,vt,1)*0.1;
-	//color = vec4(abs(d-dd),0,0,1);
-	//color = vec4(abs(d));
-	//color = vec4(dUV[0][0][0], dUV[0][0][1], 1,1);
-	//color = vec4(vColor,1);
 }

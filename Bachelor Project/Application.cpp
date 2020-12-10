@@ -1,11 +1,5 @@
 //Entry point for the program
 #pragma once
-//#define SIMPLE
-#define MULTIPLE_VIEWS					//Whether more than one view should be used
-#define UPDATE_VIEWS_BASED_ON_LOCATION	//Whether views should be changed out based on location
-//#define NORMALS						//Renders vertices with colors based on normals
-//#define RAPID_LOAD					//Loads a fast, small dataset
-//#define NO_POINTS						//Doesn't load nor render points
 
 #define VIEWNUM 10 //Number of views used by shader.
 
@@ -66,9 +60,7 @@ class Application {
 
 	int init() {
 		curPic = 0; //TODO: FIGURE OUT WHAT SCREENSHOT WE'RE AT TO AVOID OVERRIDING
-#ifdef MULTIPLE_VIEWS
 		multipleViews = true;
-#endif
 		stbi_set_flip_vertically_on_load(true);
 		stbi_flip_vertically_on_write(true);
 
@@ -196,23 +188,10 @@ class Application {
 
 		synthShader = Shader("shaders/DepthVertexShader.vertexshader", "shaders/DepthFragmentShader.fragmentshader");
 		synthShader.CreateUniformLocation("MVP");
-#ifdef SIMPLE
-#ifdef NORMALS
-		visualShader = Shader("shaders/NormalVertexShader.vertexshader", "shaders/NormalFragmentShader.fragmentshader");
-#else
-		visualShader = Shader("shaders/SimpleVertexShader.vertexshader", "shaders/SimpleFragmentShader.fragmentshader");
-#endif
-#else	
-#ifdef MULTIPLE_VIEWS
+
 		visualShader = Shader("shaders/ViewDepthlessVertexShader.vertexshader", "shaders/OldViewFragmentShader.fragmentshader");
 		visualDepthShader = Shader("shaders/NewViewVertexShader.vertexShader", "shaders/NewViewFragmentShader.fragmentshader");
 		visualPointColorShader = Shader("shaders/SimpleVertexShader.vertexshader", "shaders/SimpleFragmentShader.fragmentshader");
-#else
-		Shader visualShader("shaders/TestInterpVertexShader.vertexshader", "shaders/TestInterpFragmentShader.fragmentshader");
-		unsigned int ExternalTex2ID = glGetUniformLocation(visualShader.getId(), "externalTexture2");
-		unsigned int ExternalMatrix2ID = glGetUniformLocation(visualShader.getId(), "viewMVP2");
-		unsigned int ExternalViewDir2ID = glGetUniformLocation(visualShader.getId(), "viewDir2");
-#endif
 		visualDepthShader.CreateUniformLocation("depthTexture");
 		visualDepthShader.CreateUniformLocation("confidenceTexture");
 		visualDepthShader.CreateUniformLocation("minDepth");
@@ -245,31 +224,12 @@ class Application {
 		debugShader = Shader("shaders/DebugVertexShader.vertexshader", "shaders/DebugFragmentShader.fragmentshader");
 		debugShader.CreateUniformLocation("tex");
 		delete[] shaders;
-#endif
+
 	}
 	glm::mat4 CreateExternalProjectionMatrix() {
 		return glm::perspective(glm::radians(getExtFOV()), relevantViews[0].getTexture().getWidth() / ((float)relevantViews[0].getTexture().getHeight()), 0.1f, 100.0f);
 	}
 
-#define VIEW_CHOICE_METHOD_BEST_DOT // This one works by just choosing the view with the best dot product - entirely view dependant
-
-	View ChooseView(glm::vec3 position, glm::vec3 direction, Viewset viewset) {
-		int closestView = 0;
-		double bestDot = -1;
-
-
-
-#ifdef VIEW_CHOICE_METHOD_BEST_DOT
-		for (int i = 0; i < viewset.getViews().size(); i++) {
-			if (glm::dot(viewset.getViews()[i].getDirection(), direction) > bestDot) {
-				bestDot = glm::dot(viewset.getViews()[i].getDirection(), direction);
-				closestView = i;
-			}
-		}
-#endif
-
-		return viewset.getViews()[closestView];
-	}
 
 	const float sigma2 = 2;
 	float weight(float d2, float x) {
@@ -280,34 +240,6 @@ class Application {
 
 	void renderPoints(glm::mat4 MVP, glm::vec3 Position, glm::vec3 Direction, int width, int height) {
 
-#ifdef SIMPLE
-		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-		visualShader.Bind();
-
-
-		glUniformMatrix4fv(MatrixID, 1, GL_FALSE, &MVP[0][0]);
-
-		vBuffer.Bind();
-		cBuffer.Bind();
-		nBuffer.Bind();
-
-		glDrawArrays(GL_POINTS, 0, pc->getLength());
-
-		vBuffer.Unbind();
-		cBuffer.Unbind();
-		nBuffer.Unbind();
-
-		/* Swap front and back buffers */
-		glfwSwapBuffers(window);
-
-		/* Poll for and process events */
-		glfwPollEvents();
-#else
-
-
-
-
-#ifdef MULTIPLE_VIEWS
 		glm::mat4 ExternalViewMatrices[VIEWNUM];
 		glm::mat4 ExternalProjectionMatrix = CreateExternalProjectionMatrix();
 		glm::mat4 ExternalMVPs[VIEWNUM];
@@ -323,18 +255,8 @@ class Application {
 			ExternalViewDirs[i] = relevantViews[i].getDirection();
 			ExternalViewLocs[i] = relevantViews[i].getPosition();
 		}
-#else
-		glm::mat4 ExternalViewMatrix = relevantView.getViewMatrix();
-		glm::mat4 ExternalProjectionMatrix = glm::perspective(glm::radians(67.f), 3 / 4.f, 0.1f, 100.0f);
-		glm::mat4 ExternalMVP = ExternalProjectionMatrix * ExternalViewMatrix * ModelMatrix;
-
-		glm::mat4 ExternalViewMatrix2 = vs.getViews()[1].getViewMatrix();
-		glm::mat4 ExternalProjectionMatrix2 = glm::perspective(glm::radians(67.f), 3 / 4.f, 0.1f, 100.0f);
-		glm::mat4 ExternalMVP2 = ExternalProjectionMatrix2 * ExternalViewMatrix2 * ModelMatrix;
-#endif
 
 
-#ifndef NO_POINTS
 		/*			Renders depth unto framebuffer texture.
 
 
@@ -377,7 +299,6 @@ class Application {
 
 		glUniformMatrix4fv(activeShader->GetUniformLocation("MVP"), 1, GL_FALSE, &MVP[0][0]);
 
-#ifdef MULTIPLE_VIEWS
 		glUniformMatrix4fv(activeShader->GetUniformLocation("viewMVP"), VIEWNUM, GL_FALSE, &ExternalMVPs[0][0][0]);
 		glUniform3fv(activeShader->GetUniformLocation("viewDir"), VIEWNUM, &ExternalViewDirs[0][0]);
 		glUniform3fv(activeShader->GetUniformLocation("viewLoc"), VIEWNUM, &ExternalViewLocs[0][0]);
@@ -433,21 +354,6 @@ class Application {
 			glUniform1f(activeShader->GetUniformLocation("kdist"), getkdist());
 			glUniform1f(activeShader->GetUniformLocation("pointSize"), getPointSize());
 		}
-#else
-		glUniformMatrix4fv(ExternalMatrixID, 1, GL_FALSE, &ExternalMVP[0][0]);
-		glUniformMatrix4fv(ExternalMatrix2ID, 1, GL_FALSE, &ExternalMVP2[0][0]);
-		glm::vec3 vector(1, 0, 0);
-		glm::vec3 vector2(0.0, 1, 1);
-		glUniform3fv(ExternalViewDirID, 1, &vector[0]);
-		glUniform3fv(ExternalViewDir2ID, 1, &vector2[0]);
-		glActiveTexture(GL_TEXTURE1);
-		glBindTexture(GL_TEXTURE_2D, relevantView.getTexture().getId());
-		glUniform1i(ExternalTexID, 1);
-		glActiveTexture(GL_TEXTURE2);
-		glBindTexture(GL_TEXTURE_2D, vs.getViews()[1].getTexture().getId());
-		glUniform1i(ExternalTex2ID, 2);
-
-#endif
 		// This was used to input the depth as seen from the camera
 		//glActiveTexture(GL_TEXTURE0);
 		//glBindTexture(GL_TEXTURE_2D, depthTexture);
@@ -475,16 +381,6 @@ class Application {
 		v2Buffer.Unbind();
 		c2Buffer.Unbind();
 		n2Buffer.Unbind();
-#else //End of NO_POINTS ifn
-
-glBindFramebuffer(GL_FRAMEBUFFER, 0);
-glViewport(0, 0, width, height);
-
-glPointSize(getPointSize());
-
-glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-#endif //End of NO_POINTS ifn else
-#endif //End of SIMPLE if else
 	}
 
 
@@ -1180,41 +1076,29 @@ public:
 
 
 		std::cout << "making testview! " << std::endl;
-#ifdef RAPID_LOAD
-		Viewset vs("testview");
-		happly::PLYData p = readPly("testview/outside.ply", 1);
-#else
 		vs = Viewset("gerrardview");
 
 		//Time to test the depthmap conversion compute shader
 
 		std::cout << "Now reading object" << std::endl;
-#ifndef NO_POINTS
 		happly::PLYData p = readPly("gerrardview/object.ply", 1);
-#endif
-#endif
 		std::cout << vs.getViews()[0].getPosition()[0] << ", " << vs.getViews()[0].getPosition()[1] << "," << vs.getViews()[0].getPosition()[2] << std::endl;
-#ifdef MULTIPLE_VIEWS
 		relevantViews[0] = vs.getViews()[0];
 		relevantViews[1] = vs.getViews()[1];
 		relevantViews[2] = vs.getViews()[2];
 		relevantViews[3] = vs.getViews()[3];
 		relevantViews[4] = vs.getViews()[4];
-#endif
 
-#ifndef NO_POINTS
 		pcOriginal = p.pc;
 		pcSubsampled = new PointCloud(p.pc, subsample);
 		pc = pcSubsampled;
 		//pc->createQuadVertexPositions();
 		std::cout << "Points: " << p.pc->getLength() << std::endl;
 		glClearColor(pc->avgColor[0], pc->avgColor[1], pc->avgColor[2], 1);
-#endif
 		//SURFEL STRIPPING SEEMS UNFIT TO THE PROBLEM. I'LL TRY IMPLEMENTING IT ANYWAY, MAYBE
 		//Octree oc(pc->vertexPositions, pc->realVertexColors, pc->vertexNormals, pc->getLength());
 
 
-#ifndef SIMPLE
 		unsigned int framebufferName = 0;
 		glGenFramebuffers(1, &framebufferName);
 		glBindFramebuffer(GL_FRAMEBUFFER, framebufferName);
@@ -1243,12 +1127,9 @@ public:
 
 		if(glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
 			return -1;
-#endif
 
-#ifndef NO_POINTS
 		// Let's make a vertex buffer!
 		genBuffers();
-#endif
 
 		// TEMPORARY FOR TESTING
 		int vsize = vs.getViews().size();
@@ -1317,9 +1198,7 @@ public:
 			glBindFramebuffer(GL_FRAMEBUFFER, 0);
 			glViewport(0, 0, width, height);
 			computeMatricesFromInputs(window);
-#ifdef UPDATE_VIEWS_BASED_ON_LOCATION
 			chooseViews(getPosition(), getDirection(), vs);
-#endif
 
 			if (glfwGetKey(window, GLFW_KEY_G) == GLFW_PRESS) {
 				synthesizeRelevantDepths();
