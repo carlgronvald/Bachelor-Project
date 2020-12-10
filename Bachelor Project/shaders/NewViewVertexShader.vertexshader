@@ -4,7 +4,6 @@
 
 layout(location=0) in vec3 vertexPosition_modelspace;
 layout(location=1) in vec3 color;
-layout(location=2) in vec3 normal;
 
 out vec3 vColor;
 out vec2 vertexxy;
@@ -13,7 +12,7 @@ out float vertexz;
 out float vertexw;
 out float angles[VIEWNUM];
 
-
+//Uniforms needed for determining angles.
 uniform mat4 MVP;
 uniform mat4 viewMVP[VIEWNUM];
 uniform vec3 viewDir[VIEWNUM];
@@ -21,21 +20,6 @@ uniform vec3 viewLoc[VIEWNUM];
 uniform vec3 camLoc;
 uniform vec3 camDir;
 
-uniform float minDepth[VIEWNUM];
-uniform float maxDepth[VIEWNUM];
-uniform sampler2D confidenceTexture[VIEWNUM];
-uniform sampler2D colmapDepth[VIEWNUM];
-
-//Proportionality constants for gaussian weights
-uniform float kdt;
-uniform float kd;
-uniform float kt;
-uniform float kc;
-uniform float kdist;
-
-float weight(float d2, float x, float c) { //Returns the weighing of a view given squared distance, angle, and shadow map confidence
-	return exp((-d2*x*x*kdt - d2*kd - x*x*kt - c*c*kc));
-}
 
 void main() {
 	gl_Position = MVP * vec4(vertexPosition_modelspace, 1);
